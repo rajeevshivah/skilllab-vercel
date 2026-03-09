@@ -1,0 +1,28 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:    #0A1628;
+  --royal:   #1565C0;
+  --blue:    #2563EB;
+  --sky:     #DBEAFE;
+  --gold:    #F59E0B;
+  --silver:  #94A3B8;
+  --bronze:  #B45309;
+  --white:   #FFFFFF;
+  --off:     #F8FAFC;
+  --text:    #0F172A;
+  --muted:   #64748B;
+  --border:  #E2E8F0;
+  --success: #16A34A;
+  --danger:  #DC2626;
+  --font-d:  'Playfair Display', serif;
+  --font-b:  'DM Sans', sans-serif;
+  --font-m:  'DM Mono', monospace;
+  --stream-aiml: #1E40AF;
+  --stream-mern: #7C3AED;
+  --stream-java: #065F46;
+  --stream-c:    #9A3412;
+}
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-b); background: var(--navy); color: #fff; min-height: 100vh; overflow-x: hidden; }
+input, select, textarea, button { font-family: inherit; }
+a { text-decoration: none; color: inherit; }
