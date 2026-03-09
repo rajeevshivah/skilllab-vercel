@@ -14,6 +14,13 @@ const lStyle = { display:'block',fontSize:11,fontWeight:600,letterSpacing:'0.08e
 
 export default function AdminPage() {
   const { user, isSuperAdmin, isTrainer } = useAuth()
+  const { opts } = useConfig()
+  const STREAMS  = opts('stream')
+  const COURSES  = opts('course')
+  const SEMS     = opts('sem')
+  const YEARS    = opts('year')
+  const CYCLES   = opts('cycle')
+  const SECTIONS = opts('section')
   const [students, setStudents] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [saving,   setSaving]   = useState(false)
@@ -47,7 +54,7 @@ export default function AdminPage() {
         params.stream  = user.assignedStream
         params.course  = user.assignedCourse
       }
-      const { data } = await studentsAPI.list( { params })
+      const { data } = await studentsAPI.list( )
       setStudents(data.students)
       const c = await studentsAPI.getCycles()
       setCycles(c.data.cycles)

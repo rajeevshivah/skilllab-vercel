@@ -37,6 +37,11 @@ export default function Navbar() {
               <button style={S.tab(loc.pathname === '/users')}>👥 Users</button>
             </Link>
           )}
+          {user?.role === 'superadmin' && (
+            <Link to="/settings">
+              <button style={S.tab(loc.pathname === '/settings')}>🔧 Settings</button>
+            </Link>
+          )}
         </div>
         <div style={S.right}>
           {user ? (

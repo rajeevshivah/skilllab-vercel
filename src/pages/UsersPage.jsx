@@ -3,15 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { authAPI, studentsAPI } from '../api'
 import { useAuth } from '../context/AuthContext'
 
-const STREAMS  = ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
-const COURSES  = ['B.Tech','BCA']
-const SECTIONS = ['Sec A','Sec B','Sec C','F104','B.Tech','BCA']
+
 
 const iStyle = { width:'100%',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'9px 12px',borderRadius:8,fontSize:13,outline:'none' }
 const lStyle = { display:'block',fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--muted)',marginBottom:5 }
 
 export default function UsersPage() {
   const { isSuperAdmin } = useAuth()
+  const { opts } = useConfig()
+  const STREAMS  = opts('stream')
+  const COURSES  = opts('course')
+  const SECTIONS = opts('section')
   const navigate = useNavigate()
   const [users,   setUsers]   = useState([])
   const [loading, setLoading] = useState(true)

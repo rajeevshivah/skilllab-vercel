@@ -3,7 +3,8 @@ import { useAuth } from './context/AuthContext'
 import PublicPage  from './pages/PublicPage'
 import LoginPage   from './pages/LoginPage'
 import AdminPage   from './pages/AdminPage'
-import UsersPage   from './pages/UsersPage'
+import UsersPage    from './pages/UsersPage'
+import SettingsPage from './pages/SettingsPage'
 import Navbar      from './components/Navbar'
 
 function ProtectedRoute({ children }) {
@@ -21,7 +22,8 @@ export default function App() {
         <Route path="/"       element={<PublicPage />} />
         <Route path="/login"  element={<LoginPage  />} />
         <Route path="/admin"  element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-        <Route path="/users"  element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
+        <Route path="/users"    element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
         <Route path="*"       element={<Navigate to="/" />} />
       </Routes>
     </>

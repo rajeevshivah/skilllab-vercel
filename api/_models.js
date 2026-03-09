@@ -46,6 +46,18 @@ const studentSchema = new mongoose.Schema({
 
 studentSchema.index({ stream:1, section:1, course:1, cycle:1, rank:1 }, { unique: true });
 
-// Prevent model recompilation in serverless warm starts
-export const User    = mongoose.models.User    || mongoose.model('User',    userSchema);
-export const Student = mongoose.models.Student || mongoose.model('Student', studentSchema);
+// ── Config ────────────────────────────────────────────────────────
+// Stores all dynamic dropdown values: streams, sections, courses, cycles
+const configItemSchema = new mongoose.Schema({
+  type:     { type: String, required: true }, // 'stream' | 'section' | 'course' | 'cycle' | 'year'
+  value:    { type: String, required: true, trim: true },
+  label:    { type: String, trim: true },     // display name if different from value
+  isActive: { type: Boolean, default: true },
+  order:    { type: Number, default: 0 },
+}, { timestamps: true });
+
+configItemSchema.index({ type: 1, value: 1 }, { unique: true });
+
+export const User        = mongoose.models.User        || mongoose.model('User',        userSchema);
+export const Student     = mongoose.models.Student     || mongoose.model('Student',     studentSchema);
+export const ConfigItem  = mongoose.models.ConfigItem  || mongoose.model('ConfigItem',  configItemSchema);
