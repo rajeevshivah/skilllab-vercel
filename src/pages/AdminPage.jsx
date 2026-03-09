@@ -60,10 +60,23 @@ export default function AdminPage() {
   async function handlePhotoUpload(e) {
     const file = e.target.files[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) { showAlert('Photo must be under 2MB', 'error'); return }
-    const reader = new FileReader()
-    reader.onload = ev => set('photo', ev.target.result)
-    reader.readAsDataURL(file)
+    if (file.size > 5 * 1024 * 1024) { showAlert('Photo must be under 5MB', 'error'); return }
+    // Resize image to max 400x400 to keep payload small
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const MAX = 400
+      let w = img.width, h = img.height
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX } }
+      else        { if (h > MAX) { w = w * MAX / h; h = MAX } }
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+      const base64 = canvas.toDataURL('image/jpeg', 0.85)
+      set('photo', base64)
+      URL.revokeObjectURL(url)
+    }
+    img.src = url
   }
 
   async function handleSave(e) {

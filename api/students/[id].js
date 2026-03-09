@@ -6,10 +6,10 @@ const MAX = 2 * 1024 * 1024;
 
 function parsePhoto(photoData) {
   if (!photoData) return { data: null, contentType: null };
-  const match = photoData.match(/^data:(image\/\w+);base64,(.+)$/);
+  const match = photoData.match(/^data:(image\/[\w.+-]+);base64,([\s\S]+)$/);
   if (!match) return { data: null, contentType: null };
   if (Buffer.from(match[2], 'base64').length > MAX) return null;
-  return { data: match[2], contentType: match[1] };
+  return { data: match[2].trim(), contentType: match[1] };
 }
 
 function fmt(s) {
