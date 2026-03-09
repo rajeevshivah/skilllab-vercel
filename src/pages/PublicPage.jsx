@@ -48,10 +48,20 @@ export default function PublicPage() {
   async function getPhoto(id) {
     if (photoCache.current[id] !== undefined) return photoCache.current[id]
     try {
-      const { data } = await studentsAPI.getPhoto(id)
-      photoCache.current[id] = data.photo
-      return data.photo
-    } catch { photoCache.current[id] = null; return null }
+      // Fetch photo directly — avoids any routing conflicts
+      const base = import.meta.env.VITE_API_URL || '/api'
+      const res  = await fetch(`${base}/students/${id}?photo=1`, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      if (!res.ok) { photoCache.current[id] = null; return null }
+      const data = await res.json()
+      photoCache.current[id] = data.photo || null
+      return photoCache.current[id]
+    } catch (e) {
+      console.error('Photo fetch error:', e)
+      photoCache.current[id] = null
+      return null
+    }
   }
 
   if (loading) return (
