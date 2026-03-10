@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authAPI, studentsAPI } from '../api'
+import { authAPI } from '../api'
 import { useAuth } from '../context/AuthContext'
+import { useConfig } from '../context/useConfig'
 
 
 
