@@ -1,6 +1,6 @@
 // import { connectDB }       from '../_db.js';
 import db from './_db.js'
-import { ConfigItem }       from '../_models.js';
+import { ConfigItem }       from './_models.js';
 import { cors, getUser }    from '../_helpers.js';
 
 // Default seed data — used only on first load if DB is empty
