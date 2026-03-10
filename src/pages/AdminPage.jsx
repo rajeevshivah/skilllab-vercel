@@ -1,26 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
-import { authAPI, studentsAPI } from '../api'
+import { studentsAPI } from '../api'
 import { useAuth } from '../context/AuthContext'
-
-const STREAMS  = ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
-const COURSES  = ['B.Tech','BCA']
-const SEMS     = ['2nd Sem','4th Sem','6th Sem']
-const YEARS    = ['1st Year','2nd Year','3rd Year']
-const CYCLES   = ['Cycle 1','Cycle 2','Cycle 3','Cycle 4','Cycle 5']
-const SECTIONS = ['Sec A','Sec B','Sec C','F104','B.Tech','BCA']
+import { useConfig } from '../context/useConfig'
 
 const iStyle = { width:'100%',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'9px 12px',borderRadius:8,fontSize:13,outline:'none',transition:'border-color 0.2s' }
 const lStyle = { display:'block',fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--muted)',marginBottom:5 }
 
 export default function AdminPage() {
   const { user, isSuperAdmin, isTrainer } = useAuth()
-  const { opts } = useConfig()
-  const STREAMS  = opts('stream')
-  const COURSES  = opts('course')
-  const SEMS     = opts('sem')
-  const YEARS    = opts('year')
-  const CYCLES   = opts('cycle')
-  const SECTIONS = opts('section')
+  const { opts, loading: configLoading } = useConfig()
+  // Fallbacks ensure form never crashes while config loads
+  const STREAMS  = opts('stream').length  ? opts('stream')  : ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
+  const COURSES  = opts('course').length  ? opts('course')  : ['B.Tech','BCA']
+  const SEMS     = opts('sem').length     ? opts('sem')     : ['2nd Sem','4th Sem','6th Sem']
+  const YEARS    = opts('year').length    ? opts('year')    : ['1st Year','2nd Year','3rd Year']
+  const CYCLES   = opts('cycle').length   ? opts('cycle')   : ['Cycle 1','Cycle 2','Cycle 3','Cycle 4','Cycle 5']
+  const SECTIONS = opts('section').length ? opts('section') : ['Sec A','Sec B','Sec C','F104']
   const [students, setStudents] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [saving,   setSaving]   = useState(false)

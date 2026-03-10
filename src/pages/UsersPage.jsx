@@ -11,9 +11,9 @@ const lStyle = { display:'block',fontSize:11,fontWeight:600,letterSpacing:'0.08e
 export default function UsersPage() {
   const { isSuperAdmin } = useAuth()
   const { opts } = useConfig()
-  const STREAMS  = opts('stream')
-  const COURSES  = opts('course')
-  const SECTIONS = opts('section')
+  const STREAMS  = opts('stream').length  ? opts('stream')  : ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
+  const COURSES  = opts('course').length  ? opts('course')  : ['B.Tech','BCA']
+  const SECTIONS = opts('section').length ? opts('section') : ['Sec A','Sec B','Sec C','F104']
   const navigate = useNavigate()
   const [users,   setUsers]   = useState([])
   const [loading, setLoading] = useState(true)
