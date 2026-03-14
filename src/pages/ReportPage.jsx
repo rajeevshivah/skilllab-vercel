@@ -65,12 +65,13 @@ export default function ReportPage() {
   }, [user])
 
   // Load available cycles from config
-  useEffect(() => {
-    fetch('/api/config?type=cycle')
-      .then(r => r.json())
-      .then(data => setCycles((data || []).filter(c => c.isActive).map(c => c.value)))
-      .catch(() => {})
-  }, [])
+// Load available cycles from config
+useEffect(() => {
+  fetch('/api/config')
+    .then(r => r.json())
+    .then(data => setCycles((data.config?.cycle || []).map(c => c.value)))
+    .catch(() => {})
+}, [])
 
   // When section + cycle chosen, try to load existing report
   useEffect(() => {
