@@ -37,7 +37,7 @@ function InProgressManager({ config, onSaved }) {
   const existing = config['inProgress'] || []
   const [rows,   setRows]   = useState(
     existing.length > 0
-      ? existing.map(e => ({ id: e._id, cycle: e.value, date: e.label || '' }))
+      ? existing.map(e => { const parts = (e.label||'').split('||'); return { id: e._id, cycle: e.value, desc: parts[0]||'', date: parts[1]||'' } })
       : [{ id: null, cycle: '', date: '' }]
   )
   const [saving, setSaving] = useState(false)
@@ -46,7 +46,7 @@ function InProgressManager({ config, onSaved }) {
   // Sync when config loads
   useEffect(() => {
     if (existing.length > 0) {
-      setRows(existing.map(e => ({ id: e._id, cycle: e.value, date: e.label || '' })))
+      setRows(existing.map(e => { const parts = (e.label||'').split('||'); return { id: e._id, cycle: e.value, desc: parts[0]||'', date: parts[1]||'' } }))
     }
   }, [config])
 
@@ -63,7 +63,7 @@ function InProgressManager({ config, onSaved }) {
       }
       for (const row of rows.filter(r => r.cycle)) {
         await fetch('/api/config', { method:'POST', headers,
-          body: JSON.stringify({ type:'inProgress', value: row.cycle, label: row.date, order: 0 }) })
+          body: JSON.stringify({ type:'inProgress', value: row.cycle, label: `${row.desc||''}||${row.date||''}`, order: 0 }) })
       }
       onSaved()
     } catch { alert('Failed to save') }
@@ -83,25 +83,33 @@ function InProgressManager({ config, onSaved }) {
       </div>
 
       {rows.map((row, i) => (
-        <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:10,marginBottom:10}}>
-          <div>
-            {i === 0 && <label style={lS}>Running Cycle</label>}
-            <select style={{...iS,width:'100%'}} value={row.cycle} onChange={e=>update(i,'cycle',e.target.value)}>
-              <option value="" style={{background:'#0A1628'}}>Select cycle</option>
-              {CYCLES.map(c=><option key={c} value={c} style={{background:'#0A1628'}}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            {i === 0 && <label style={lS}>Results Expected Date</label>}
-            <input style={{...iS,width:'100%'}} placeholder="e.g. 29 March 2026"
-              value={row.date} onChange={e=>update(i,'date',e.target.value)} />
-          </div>
-          <div style={{display:'flex',alignItems: i===0 ? 'flex-end' : 'center'}}>
-            {rows.length > 1 && (
-              <button type="button" onClick={()=>removeRow(i)}
-                style={{padding:'9px 12px',background:'rgba(220,38,38,0.12)',border:'1px solid rgba(220,38,38,0.2)',
-                  color:'#FCA5A5',borderRadius:8,fontSize:13,cursor:'pointer'}}>✕</button>
-            )}
+        <div key={i} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',
+          borderRadius:10,padding:12,marginBottom:10}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:10}}>
+            <div>
+              {i === 0 && <label style={lS}>Running Cycle</label>}
+              <select style={{...iS,width:'100%'}} value={row.cycle} onChange={e=>update(i,'cycle',e.target.value)}>
+                <option value="" style={{background:'#0A1628'}}>Select cycle</option>
+                {CYCLES.map(c=><option key={c} value={c} style={{background:'#0A1628'}}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              {i === 0 && <label style={lS}>For (who is it for)</label>}
+              <input style={{...iS,width:'100%'}} placeholder="e.g. BCA 1st Year"
+                value={row.desc||''} onChange={e=>update(i,'desc',e.target.value)} />
+            </div>
+            <div>
+              {i === 0 && <label style={lS}>Results Expected Date</label>}
+              <input style={{...iS,width:'100%'}} placeholder="e.g. 30 March 2026"
+                value={row.date} onChange={e=>update(i,'date',e.target.value)} />
+            </div>
+            <div style={{display:'flex',alignItems: i===0 ? 'flex-end' : 'center'}}>
+              {rows.length > 1 && (
+                <button type="button" onClick={()=>removeRow(i)}
+                  style={{padding:'9px 12px',background:'rgba(220,38,38,0.12)',border:'1px solid rgba(220,38,38,0.2)',
+                    color:'#FCA5A5',borderRadius:8,fontSize:13,cursor:'pointer'}}>✕</button>
+              )}
+            </div>
           </div>
         </div>
       ))}

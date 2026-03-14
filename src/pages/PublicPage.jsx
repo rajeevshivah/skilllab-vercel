@@ -149,12 +149,18 @@ export default function PublicPage() {
               <span style={{width:7,height:7,borderRadius:'50%',background:'#3B82F6',display:'inline-block',animation:'pulse 2s infinite'}} />
               Currently Running
             </span>
-            {inProgress.map((ip,i) => (
-              <span key={i} style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>
-                <span style={{color:'white',fontWeight:600}}>{ip.value}</span>
-                {ip.label && <span style={{color:'rgba(255,255,255,0.4)'}}> · Results expected: {ip.label}</span>}
-              </span>
-            ))}
+            {inProgress.map((ip,i) => {
+              const parts = (ip.label||'').split('||')
+              const desc = parts[0], date = parts[1]
+              return (
+                <span key={i} style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',
+                  borderRadius:8,padding:'5px 12px',fontSize:13}}>
+                  <span style={{color:'#93C5FD',fontWeight:600}}>{ip.value}</span>
+                  {desc && <span style={{color:'rgba(255,255,255,0.5)'}}> · {desc}</span>}
+                  {date && <span style={{color:'rgba(255,255,255,0.35)'}}> · Results: {date}</span>}
+                </span>
+              )
+            })}
           </div>
         )}
 
