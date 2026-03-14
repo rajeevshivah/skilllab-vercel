@@ -70,20 +70,40 @@ export default function AdminPage() {
 
   useEffect(() => { fetchStudents() }, [filterCycle])
 
-  async function fetchStudents() {
-    setLoading(true)
-    try {
-      const params = {}
-      if (filterCycle) params.cycle = filterCycle
-      // Non-superadmins see students from all their assigned sections
-      // (no section filter = fetch all, then filter client-side if needed)
-      const { data } = await studentsAPI.list( )
+async function fetchStudents() {
+  setLoading(true)
+  try {
+    const params = {}
+    if (filterCycle) params.cycle = filterCycle
+
+    // Trainers: filter to only their assigned sections
+    if (!isSuperAdmin && assignedSections.length > 0) {
+      const { data } = await studentsAPI.list(params)
+      // Filter client-side: only show students matching any of trainer's assigned sections
+      const filtered = data.students.filter(s =>
+        assignedSections.some(a =>
+          a.stream === s.stream &&
+          a.course === s.course &&
+          a.sections?.includes(s.section) &&
+          a.year === s.year &&
+          a.sem === s.sem
+        )
+      )
+      setStudents(filtered)
+    } else {
+      // Superadmin sees everything
+      const { data } = await studentsAPI.list(params)
       setStudents(data.students)
-      const c = await studentsAPI.getCycles()
-      setCycles(c.data.cycles)
-    } catch (e) { showAlert(e.response?.data?.message || 'Failed to load', 'error') }
-    finally { setLoading(false) }
+    }
+
+    const c = await studentsAPI.getCycles()
+    setCycles(c.data.cycles)
+  } catch (e) {
+    showAlert(e.response?.data?.message || 'Failed to load', 'error')
+  } finally {
+    setLoading(false)
   }
+}
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
