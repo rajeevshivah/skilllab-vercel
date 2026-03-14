@@ -9,9 +9,9 @@ const userSchema = new mongoose.Schema({
   role:     { type: String, enum: ['superadmin','trainer','cotrainer'], default: 'cotrainer' },
   // Multiple section assignments — each has stream + course + section
   assignedSections: [{
-    stream:  { type: String, required: true },
-    course:  { type: String, required: true },
-    section: { type: String, required: true },
+stream:  { type: String, default: '' },
+course:  { type: String, default: '' },
+section: { type: String, default: '' },
     year:    { type: String, default: '' },
     sem:     { type: String, default: '' },
   }],
