@@ -194,7 +194,7 @@ async function generateDocx(report) {
 
 // ── Main handler ───────────────────────────────────────────────────
 export default async function handler(req, res) {
-  cors(req, res)
+  cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   await connectDB()

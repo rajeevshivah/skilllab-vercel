@@ -264,20 +264,35 @@ useEffect(() => {
           {/* Attendance */}
           <div style={S.card}>
             <div style={S.sectionHead}>Attendance</div>
-            <div style={S.row}>
-              <div><label style={S.label}>Total Students</label><input type="number" style={S.input} value={form.attendance.totalStudents} disabled={readOnly} onChange={e => setNested('attendance','totalStudents',e.target.value)} /></div>
-              <div><label style={S.label}>Average Attendance %</label><input type="number" style={S.input} value={form.attendance.avgPercent} disabled={readOnly} onChange={e => setNested('attendance','avgPercent',e.target.value)} /></div>
-            </div>
+     <div style={S.row}>
+  <div>
+    <label style={S.label}>Total Students</label>
+    <input type="number" style={S.input} value={form.attendance.totalStudents} disabled={readOnly} onChange={e => setNested('attendance','totalStudents',e.target.value)} />
+  </div>
+  <div>
+    <label style={S.label}>Average Attendance %</label>
+    <input type="number" style={S.input} value={form.attendance.avgPercent} disabled={readOnly} onChange={e => setNested('attendance','avgPercent',e.target.value)} />
+  </div>
+</div>
           </div>
 
           {/* Marks */}
           <div style={S.card}>
             <div style={S.sectionHead}>Score Distribution</div>
-            <div style={S.row}>
-              <div><label style={S.label}>Below 40</label><input type="number" style={S.input} value={form.marks.below40} disabled={readOnly} onChange={e => setNested('marks','below40',e.target.value)} /></div>
-              <div><label style={S.label}>40 – 70</label><input type="number" style={S.input} value={form.marks.mid} disabled={readOnly} onChange={e => setNested('marks','mid',e.target.value)} /></div>
-              <div><label style={S.label}>Above 70</label><input type="number" style={S.input} value={form.marks.above70} disabled={readOnly} onChange={e => setNested('marks','above70',e.target.value)} /></div>
-            </div>
+       <div style={{...S.row, gridTemplateColumns:'1fr 1fr 1fr'}}>
+  <div>
+    <label style={S.label}>Below 40</label>
+    <input type="number" style={S.input} value={form.marks.below40} disabled={readOnly} onChange={e => setNested('marks','below40',e.target.value)} />
+  </div>
+  <div>
+    <label style={S.label}>40 – 70</label>
+    <input type="number" style={S.input} value={form.marks.mid} disabled={readOnly} onChange={e => setNested('marks','mid',e.target.value)} />
+  </div>
+  <div>
+    <label style={S.label}>Above 70</label>
+    <input type="number" style={S.input} value={form.marks.above70} disabled={readOnly} onChange={e => setNested('marks','above70',e.target.value)} />
+  </div>
+</div>
           </div>
 
           {/* Engagement */}
