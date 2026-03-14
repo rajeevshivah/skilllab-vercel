@@ -14,11 +14,19 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   if (req.method === 'PATCH') {
-    const { name, role, assignedStream, assignedSection, assignedCourse, isActive } = req.body;
-    const user = await User.findByIdAndUpdate(id,
-      { name, role, assignedStream, assignedSection, assignedCourse, isActive },
-      { new: true }
-    ).select('-password');
+    const { name, role, assignedSections, isActive, password } = req.body;
+    const updateData = {
+      ...(name     !== undefined && { name }),
+      ...(role     !== undefined && { role }),
+      ...(isActive !== undefined && { isActive }),
+      ...(assignedSections !== undefined && { assignedSections }),
+    };
+    // Allow password update too
+    if (password) {
+      const user = await User.findById(id);
+      if (user) { user.password = password; await user.save(); }
+    }
+    const user = await User.findByIdAndUpdate(id, updateData, { new: true }).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
     return res.json({ user });
   }

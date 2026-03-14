@@ -51,8 +51,10 @@ export default async function handler(req, res) {
     const { name, roll, rank, stream, course, sem, section, year, cycle, project, photo } = req.body;
 
     if (me.role !== 'superadmin') {
-      if (me.assignedStream !== stream || me.assignedSection !== section || me.assignedCourse !== course)
-        return res.status(403).json({ message: 'You can only add students to your assigned section' });
+      const allowed = me.assignedSections?.some(a =>
+        a.stream === stream && a.course === course && a.section === section
+      ) || (me.assignedStream === stream && me.assignedCourse === course && me.assignedSection === section);
+      if (!allowed) return res.status(403).json({ message: 'You can only add students to your assigned sections' });
     }
 
     let photoDoc = { data: null, contentType: null };

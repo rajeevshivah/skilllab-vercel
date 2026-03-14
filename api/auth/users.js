@@ -19,11 +19,17 @@ export default async function handler(req, res) {
 
   // POST — create user
   if (req.method === 'POST') {
-    const { name, email, password, role, assignedStream, assignedSection, assignedCourse } = req.body;
+    const { name, email, password, role, assignedSections } = req.body;
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: 'Email already exists' });
-    const user = await User.create({ name, email, password, role, assignedStream, assignedSection, assignedCourse });
-    return res.status(201).json({ message: 'User created', user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    const user = await User.create({
+      name, email, password, role,
+      assignedSections: role !== 'superadmin' ? (assignedSections || []) : [],
+    });
+    return res.status(201).json({
+      message: 'User created',
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, assignedSections: user.assignedSections }
+    });
   }
 
   res.status(405).json({ message: 'Method not allowed' });
