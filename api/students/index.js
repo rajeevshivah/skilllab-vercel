@@ -51,18 +51,12 @@ export default async function handler(req, res) {
     const { name, roll, rank, stream, course, sem, section, year, cycle, project, photo } = req.body;
 
     if (me.role !== 'superadmin') {
-      // Debug info
-      console.log('Permission check:', JSON.stringify({
-        submitting: { stream, course, section, year, sem },
-        assignedSections: me.assignedSections,
-        legacyAssigned: { stream: me.assignedStream, course: me.assignedCourse, section: me.assignedSection }
-      }));
       const allowed = me.assignedSections?.some(a =>
         a.stream === stream && a.course === course &&
         (a.sections?.includes(section) || a.sections?.length === 0) &&
         (!a.year || a.year === year) && (!a.sem || a.sem === sem)
       ) || (me.assignedStream === stream && me.assignedCourse === course && me.assignedSection === section);
-      if (!allowed) return res.status(403).json({ message: `Not allowed. Your sections: ${JSON.stringify(me.assignedSections)}` });
+      if (!allowed) return res.status(403).json({ message: 'You can only add students to your assigned sections' });
     }
 
     let photoDoc = { data: null, contentType: null };

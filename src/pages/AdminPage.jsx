@@ -52,13 +52,14 @@ export default function AdminPage() {
   const [cycles, setCycles] = useState([])
 
   const firstSection = user?.assignedSections?.[0] || {}
+  const firstSec = firstSection.sections?.[0] || user?.assignedSection || ''
   const [form, setForm] = useState({
     name:'', roll:'', rank:'1',
-    stream:  firstSection.stream  || user?.assignedStream  || 'AI / ML',
-    course:  firstSection.course  || user?.assignedCourse  || 'B.Tech',
-    sem:     firstSection.sem     || '2nd Sem',
-    section: firstSection.section || user?.assignedSection || '',
-    year:    firstSection.year    || '1st Year',
+    stream:  firstSection.stream  || user?.assignedStream  || '',
+    course:  firstSection.course  || user?.assignedCourse  || '',
+    sem:     firstSection.sem     || '',
+    section: firstSec,
+    year:    firstSection.year    || '',
     cycle:'Cycle 2', project:'', photo:''
   })
 
@@ -147,13 +148,14 @@ export default function AdminPage() {
 
   function clearForm() {
     setEditingId(null)
-    const fs = user?.assignedSections?.[0] || {}
+    const fs  = user?.assignedSections?.[0] || {}
+    const fsc = fs.sections?.[0] || user?.assignedSection || ''
     setForm({ name:'', roll:'', rank:'1',
-      stream:  fs.stream  || user?.assignedStream  || 'AI / ML',
-      course:  fs.course  || user?.assignedCourse  || 'B.Tech',
-      sem:     fs.sem     || '2nd Sem',
-      section: fs.section || user?.assignedSection || '',
-      year:    fs.year    || '1st Year',
+      stream:  fs.stream || user?.assignedStream || '',
+      course:  fs.course || user?.assignedCourse || '',
+      sem:     fs.sem    || '',
+      section: fsc,
+      year:    fs.year   || '',
       cycle:'Cycle 2', project:'', photo:'' })
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -205,7 +207,20 @@ export default function AdminPage() {
                 <option value="3" style={{background:'#0A1628'}}>3rd — Trailblazer</option>
               </select></div>
             <div><label style={lStyle}>Stream *</label>
-              <select style={iStyle} value={form.stream} onChange={e=>{set('stream',e.target.value); set('course',''); set('section','')}}>
+              <select style={iStyle} value={form.stream} onChange={e=>{
+                const newStream = e.target.value
+                const courses  = getAllowedOpts('course', { stream: newStream })
+                const secs     = getAllowedOpts('section', { stream: newStream, course: courses[0]||'' })
+                const years    = getAllowedOpts('year',    { stream: newStream, course: courses[0]||'' })
+                const sems2    = getAllowedOpts('sem',     { stream: newStream, course: courses[0]||'' })
+                setForm(f => ({ ...f,
+                  stream:  newStream,
+                  course:  courses.length === 1  ? courses[0]  : '',
+                  section: secs.length === 1     ? secs[0]     : '',
+                  year:    years.length === 1    ? years[0]    : f.year,
+                  sem:     sems2.length === 1    ? sems2[0]    : f.sem,
+                }))
+              }}>
                 {getAllowedOpts('stream',form).map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
               </select></div>
             <div><label style={lStyle}>Cycle *</label>
@@ -215,7 +230,18 @@ export default function AdminPage() {
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,marginBottom:14}}>
             <div><label style={lStyle}>Course *</label>
-              <select style={iStyle} value={form.course} onChange={e=>{set('course',e.target.value); set('section','')}}>
+              <select style={iStyle} value={form.course} onChange={e=>{
+                const newCourse = e.target.value
+                const secs  = getAllowedOpts('section', { ...form, course: newCourse })
+                const years = getAllowedOpts('year',    { ...form, course: newCourse })
+                const sems2 = getAllowedOpts('sem',     { ...form, course: newCourse })
+                setForm(f => ({ ...f,
+                  course:  newCourse,
+                  section: secs.length === 1  ? secs[0]  : '',
+                  year:    years.length === 1 ? years[0] : f.year,
+                  sem:     sems2.length === 1 ? sems2[0] : f.sem,
+                }))
+              }}>
                 {getAllowedOpts('course',form).map(c=><option key={c} value={c} style={{background:'#0A1628'}}>{c}</option>)}
               </select></div>
             <div><label style={lStyle}>Semester *</label>
