@@ -12,6 +12,8 @@ const userSchema = new mongoose.Schema({
     stream:  { type: String, required: true },
     course:  { type: String, required: true },
     section: { type: String, required: true },
+    year:    { type: String, default: '' },
+    sem:     { type: String, default: '' },
   }],
   // Legacy single-assignment fields kept for backward compatibility
   assignedStream:  { type: String, default: null },
@@ -36,7 +38,8 @@ userSchema.methods.canManageStudent = function(s) {
   // Check new multi-section array first
   if (this.assignedSections && this.assignedSections.length > 0) {
     return this.assignedSections.some(a =>
-      a.stream === s.stream && a.course === s.course && a.section === s.section
+      a.stream === s.stream && a.course === s.course && a.section === s.section &&
+      (!a.year || a.year === s.year) && (!a.sem || a.sem === s.sem)
     );
   }
   // Fall back to legacy single assignment

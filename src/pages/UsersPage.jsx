@@ -13,6 +13,8 @@ export default function UsersPage() {
   const STREAMS  = opts('stream').length  ? opts('stream')  : ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
   const COURSES  = opts('course').length  ? opts('course')  : ['B.Tech','BCA']
   const SECTIONS = opts('section').length ? opts('section') : ['Sec A','Sec B','Sec C','F104']
+  const YEARS    = opts('year').length    ? opts('year')    : ['1st Year','2nd Year','3rd Year']
+  const SEMS     = opts('sem').length     ? opts('sem')     : ['2nd Sem','4th Sem','6th Sem']
   const navigate = useNavigate()
   const [users,   setUsers]   = useState([])
   const [loading, setLoading] = useState(true)
@@ -21,7 +23,7 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({
     name:'', email:'', password:'', role:'cotrainer',
-    assignedSections: [{ stream:'', course:'', section:'' }]
+    assignedSections: [{ stream:'', course:'', section:'', year:'', sem:'' }]
   })
 
   useEffect(() => { if (!isSuperAdmin) { navigate('/'); return } fetchUsers() }, [])
@@ -35,7 +37,7 @@ export default function UsersPage() {
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   function addSection() {
-    setForm(f => ({ ...f, assignedSections: [...f.assignedSections, { stream: STREAMS[0]||'', course: COURSES[0]||'', section: SECTIONS[0]||'' }] }))
+    setForm(f => ({ ...f, assignedSections: [...f.assignedSections, { stream: STREAMS[0]||'', course: COURSES[0]||'', section: SECTIONS[0]||'', year:'', sem:'' }] }))
   }
   function removeSection(i) {
     setForm(f => ({ ...f, assignedSections: f.assignedSections.filter((_,idx) => idx !== i) }))
@@ -88,7 +90,7 @@ export default function UsersPage() {
 
   function clearForm() {
     setEditingId(null)
-    setForm({ name:'', email:'', password:'', role:'cotrainer', assignedSections: [{ stream: STREAMS[0]||'', course: COURSES[0]||'', section: SECTIONS[0]||'' }] })
+    setForm({ name:'', email:'', password:'', role:'cotrainer', assignedSections: [{ stream: STREAMS[0]||'', course: COURSES[0]||'', section: SECTIONS[0]||'', year:'', sem:'' }] })
   }
 
   function showAlert(msg, type) { setAlert({ msg, type }); setTimeout(() => setAlert(null), 3500) }
@@ -104,7 +106,7 @@ export default function UsersPage() {
       <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
         {secs.map((s,i) => (
           <span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:'rgba(255,255,255,0.07)',color:'rgba(255,255,255,0.7)',whiteSpace:'nowrap'}}>
-            {s.stream} · {s.course} · {s.section}
+            {s.stream} · {s.course} · {s.section}{s.year ? ` · ${s.year}` : ''}{s.sem ? ` · ${s.sem}` : ''}
           </span>
         ))}
       </div>
@@ -170,7 +172,7 @@ export default function UsersPage() {
               </div>
 
               {form.assignedSections.map((sec, i) => (
-                <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:10,marginBottom:10,
+                <div key={i} style={{display:'grid',gridTemplateColumns:'1.5fr 1fr 1fr 1fr 1fr auto',gap:10,marginBottom:10,
                   background:'rgba(255,255,255,0.03)',padding:12,borderRadius:10,border:'1px solid rgba(255,255,255,0.06)'}}>
                   <div>
                     {i === 0 && <label style={lStyle}>Stream</label>}
@@ -188,6 +190,20 @@ export default function UsersPage() {
                     {i === 0 && <label style={lStyle}>Section</label>}
                     <select style={iStyle} value={sec.section} onChange={e=>updateSection(i,'section',e.target.value)}>
                       {SECTIONS.map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    {i === 0 && <label style={lStyle}>Year</label>}
+                    <select style={iStyle} value={sec.year} onChange={e=>updateSection(i,'year',e.target.value)}>
+                      <option value="" style={{background:'#0A1628'}}>Any year</option>
+                      {YEARS.map(y=><option key={y} value={y} style={{background:'#0A1628'}}>{y}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    {i === 0 && <label style={lStyle}>Semester</label>}
+                    <select style={iStyle} value={sec.sem} onChange={e=>updateSection(i,'sem',e.target.value)}>
+                      <option value="" style={{background:'#0A1628'}}>Any sem</option>
+                      {SEMS.map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
                     </select>
                   </div>
                   <div style={{display:'flex',alignItems: i===0 ? 'flex-end' : 'center'}}>
