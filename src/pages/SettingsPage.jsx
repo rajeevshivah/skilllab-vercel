@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from './api-helper'
@@ -32,6 +32,100 @@ const S = {
   addRow:  { display:'flex', gap:8, marginTop:4 },
   input:   { flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'white', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'var(--font-b)' },
   addBtn:  { padding:'8px 18px', background:'var(--blue)', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer' },
+}
+
+// ── Active Cycle Manager ─────────────────────────────────────────
+function ActiveCycleManager({ config, onSaved }) {
+  const CYCLES = (config['cycle'] || []).filter(c => c.isActive).map(c => c.value)
+  const active = config['activeCycle'] || []
+
+  // We support two entries: one for all courses, one for 1st year (different cycle)
+  const mainActive  = active.find(a => a.order === 0) || { value: '', label: '' }
+  const yearActive  = active.find(a => a.order === 1) || { value: '', label: '' }
+
+  const [main,  setMain]  = useState({ cycle: mainActive.value, endDate: mainActive.label, id: mainActive._id })
+  const [year1, setYear1] = useState({ cycle: yearActive.value, endDate: yearActive.label, id: yearActive._id })
+  const [saving, setSaving] = useState(false)
+  const token = localStorage.getItem('sl_token')
+
+  async function save() {
+    setSaving(true)
+    try {
+      const headers = { 'Content-Type':'application/json', Authorization:`Bearer ${token}` }
+      // Save/update main active cycle
+      if (main.id) {
+        await fetch('/api/config', { method:'PATCH', headers, body: JSON.stringify({ id: main.id, value: main.cycle, label: main.endDate }) })
+      } else {
+        await fetch('/api/config', { method:'POST', headers, body: JSON.stringify({ type:'activeCycle', value: main.cycle, label: main.endDate, order: 0 }) })
+      }
+      // Save/update 1st year cycle if set
+      if (year1.cycle) {
+        if (year1.id) {
+          await fetch('/api/config', { method:'PATCH', headers, body: JSON.stringify({ id: year1.id, value: year1.cycle, label: year1.endDate }) })
+        } else {
+          await fetch('/api/config', { method:'POST', headers, body: JSON.stringify({ type:'activeCycle', value: year1.cycle, label: year1.endDate, order: 1 }) })
+        }
+      }
+      onSaved()
+    } catch(e) { alert('Failed to save') }
+    finally { setSaving(false) }
+  }
+
+  const iS = { background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'9px 12px',borderRadius:8,fontSize:13,outline:'none' }
+  const lS = { display:'block',fontSize:11,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',color:'rgba(255,255,255,0.4)',marginBottom:5 }
+
+  return (
+    <div style={{background:'rgba(234,179,8,0.06)',border:'1px solid rgba(234,179,8,0.2)',borderRadius:16,padding:24,marginBottom:20}}>
+      <div style={{marginBottom:16,paddingBottom:12,borderBottom:'1px solid rgba(234,179,8,0.15)'}}>
+        <p style={{fontFamily:'var(--font-d)',fontSize:17,fontWeight:700,margin:0}}>🏆 Active Cycle on Hall of Fame</p>
+        <p style={{fontSize:12,color:'var(--muted)',margin:'4px 0 0'}}>Set which cycle visitors see by default. End date is shown as info on the page.</p>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
+        <div style={{background:'rgba(255,255,255,0.03)',borderRadius:12,padding:16,border:'1px solid rgba(255,255,255,0.06)'}}>
+          <p style={{fontSize:13,fontWeight:600,marginBottom:12,color:'#93C5FD'}}>All Courses (default)</p>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div>
+              <label style={lS}>Active Cycle</label>
+              <select style={{...iS,width:'100%'}} value={main.cycle} onChange={e=>setMain(m=>({...m,cycle:e.target.value}))}>
+                <option value="" style={{background:'#0A1628'}}>Select cycle</option>
+                {CYCLES.map(c=><option key={c} value={c} style={{background:'#0A1628'}}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lS}>End Date</label>
+              <input style={{...iS,width:'100%'}} placeholder="e.g. 27 March 2026" value={main.endDate}
+                onChange={e=>setMain(m=>({...m,endDate:e.target.value}))} />
+            </div>
+          </div>
+        </div>
+
+        <div style={{background:'rgba(255,255,255,0.03)',borderRadius:12,padding:16,border:'1px solid rgba(255,255,255,0.06)'}}>
+          <p style={{fontSize:13,fontWeight:600,marginBottom:12,color:'#86EFAC'}}>1st Year Students (if different)</p>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div>
+              <label style={lS}>Active Cycle</label>
+              <select style={{...iS,width:'100%'}} value={year1.cycle} onChange={e=>setYear1(m=>({...m,cycle:e.target.value}))}>
+                <option value="" style={{background:'#0A1628'}}>Same as above</option>
+                {CYCLES.map(c=><option key={c} value={c} style={{background:'#0A1628'}}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lS}>End Date</label>
+              <input style={{...iS,width:'100%'}} placeholder="e.g. 27 March 2026" value={year1.endDate}
+                onChange={e=>setYear1(m=>({...m,endDate:e.target.value}))} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button onClick={save} disabled={saving}
+        style={{padding:'10px 24px',background:'rgba(234,179,8,0.2)',border:'1px solid rgba(234,179,8,0.4)',
+          color:'var(--gold)',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer',opacity:saving?0.7:1}}>
+        {saving ? 'Saving…' : '💾 Save Active Cycle Settings'}
+      </button>
+    </div>
+  )
 }
 
 export default function SettingsPage() {
@@ -103,6 +197,8 @@ export default function SettingsPage() {
         <h1 style={{fontFamily:'var(--font-d)',fontSize:28}}>⚙️ Settings</h1>
         <p style={{fontSize:13,color:'var(--muted)',marginTop:4}}>Manage dropdown options — no code changes needed</p>
       </div>
+
+      <ActiveCycleManager config={config} onSaved={fetchConfig} />
 
       {alert && (
         <div style={{padding:'12px 16px',borderRadius:10,fontSize:13,marginBottom:20,

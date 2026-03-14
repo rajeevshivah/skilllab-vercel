@@ -9,25 +9,57 @@ const RANK_LABELS = { 1:'Pioneer', 2:'Vanguard', 3:'Trailblazer' }
 const STREAM_ORDER = ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
 
 export default function PublicPage() {
-  const [students, setStudents] = useState([])
-  const [cycles,   setCycles]   = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [filters,  setFilters]  = useState({ stream:'', cycle:'', year:'', search:'' })
+  const [students,     setStudents]     = useState([])
+  const [cycles,       setCycles]       = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [filters,      setFilters]      = useState({ stream:'', cycle:'', year:'', search:'' })
+  const [activeCycles, setActiveCycles] = useState([]) // [{value, label, order}]
   const photoCache = useRef({})
 
   useEffect(() => {
     Promise.all([
       studentsAPI.list(),
-      studentsAPI.getCycles()
-    ]).then(([sr, cr]) => {
-      setStudents(sr.data.students)
+      studentsAPI.getCycles(),
+      fetch('/api/config').then(r => r.json()),
+    ]).then(([sr, cr, cfgData]) => {
+      const allStudents = sr.data.students
+      setStudents(allStudents)
       setCycles(cr.data.cycles)
+
+      // Get active cycle config
+      const activeCfg = cfgData.config?.activeCycle || []
+      setActiveCycles(activeCfg)
+
+      // Set default filter to active cycle
+      // order=0 is main active cycle, order=1 is 1st year override
+      const mainActive = activeCfg.find(a => a.order === 0)
+      if (mainActive?.value) {
+        setFilters(f => ({ ...f, cycle: mainActive.value }))
+      }
     }).finally(() => setLoading(false))
   }, [])
 
+  // Get active cycle for a specific student (1st year may have different active cycle)
+  function getActiveCycleForYear(year) {
+    const year1Active = activeCycles.find(a => a.order === 1)
+    const mainActive  = activeCycles.find(a => a.order === 0)
+    if (year === '1st Year' && year1Active?.value) return year1Active
+    return mainActive || null
+  }
+
   const filtered = students.filter(s => {
+    // If cycle filter is set, use it
+    // But for 1st year students, use their own active cycle when on default view
+    if (filters.cycle) {
+      const year1Active = activeCycles.find(a => a.order === 1)
+      if (year1Active?.value && s.year === '1st Year' && filters.cycle !== year1Active.value) {
+        // Show 1st year students with their own active cycle
+        if (s.cycle !== year1Active.value) return false
+      } else if (s.cycle !== filters.cycle) {
+        return false
+      }
+    }
     if (filters.stream && s.stream !== filters.stream) return false
-    if (filters.cycle  && s.cycle  !== filters.cycle)  return false
     if (filters.year   && s.year   !== filters.year)   return false
     if (filters.search) {
       const q = filters.search.toLowerCase()
@@ -104,6 +136,32 @@ export default function PublicPage() {
       </header>
 
       <div style={{maxWidth:1100,margin:'0 auto',padding:'40px 24px'}}>
+
+        {/* Active Cycle Info Banner */}
+        {activeCycles.length > 0 && (
+          <div style={{background:'rgba(234,179,8,0.08)',border:'1px solid rgba(234,179,8,0.2)',
+            borderRadius:12,padding:'12px 20px',marginBottom:24,display:'flex',flexWrap:'wrap',gap:16,alignItems:'center'}}>
+            <span style={{fontSize:13,color:'var(--gold)',fontWeight:600}}>📅 Current Cycle</span>
+            {activeCycles.filter(a=>a.order===0).map(a=>(
+              <span key={a._id} style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>
+                <span style={{color:'white',fontWeight:600}}>{a.value}</span>
+                {a.label && <span style={{color:'rgba(255,255,255,0.45)'}}> · Ended {a.label}</span>}
+              </span>
+            ))}
+            {activeCycles.filter(a=>a.order===1 && a.value).map(a=>(
+              <span key={a._id} style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>
+                <span style={{color:'#86EFAC',fontWeight:600}}>1st Year: {a.value}</span>
+                {a.label && <span style={{color:'rgba(255,255,255,0.45)'}}> · Ended {a.label}</span>}
+              </span>
+            ))}
+            <button onClick={()=>setFilters(f=>({...f,cycle:''}))}
+              style={{marginLeft:'auto',fontSize:11,padding:'4px 10px',background:'rgba(255,255,255,0.08)',
+                border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.5)',borderRadius:6,cursor:'pointer'}}>
+              Show all cycles
+            </button>
+          </div>
+        )}
+
         {/* Filters */}
         <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:36,alignItems:'center'}}>
           <span style={{fontSize:12,color:'var(--muted)',letterSpacing:'0.06em',textTransform:'uppercase'}}>Filter:</span>
@@ -117,9 +175,11 @@ export default function PublicPage() {
             </select>
           ))}
           <select value={filters.cycle} onChange={e => setFilters(f=>({...f,cycle:e.target.value}))}
-            style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'8px 14px',borderRadius:8,fontSize:13,cursor:'pointer',minWidth:120}}>
+            style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'8px 14px',borderRadius:8,fontSize:13,cursor:'pointer',minWidth:130}}>
             <option value="" style={{background:'#0A1628'}}>All Cycles</option>
-            {cycles.map(c => <option key={c} value={c} style={{background:'#0A1628'}}>{c}</option>)}
+            {cycles.map(c => <option key={c} value={c} style={{background:'#0A1628'}}>
+              {c}{activeCycles.some(a=>a.value===c) ? ' ★' : ''}
+            </option>)}
           </select>
           <input value={filters.search} onChange={e => setFilters(f=>({...f,search:e.target.value}))}
             placeholder="Search by name or roll…"
