@@ -303,7 +303,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Forbidden' })
 
     const allowed = ['coTrainerName','startDate','endDate','projectConducted','attendance','marks',
-      'engagementLevel','skillProgressLevel','topicsCovered','challenges',
+      'avgMarks','engagementLevel','skillProgressLevel','topicsCovered','challenges',
       'operationalChallenges','achievements','recommendations','summary']
     const update = {}
     for (const key of allowed) if (req.body[key] !== undefined) update[key] = req.body[key]

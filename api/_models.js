@@ -107,12 +107,14 @@ const sectionCycleSchema = new mongoose.Schema({
     totalStudents: { type: Number, default: null },
     avgPercent:    { type: Number, default: null },
   },
+  
 
   marks: {
     below40: { type: Number, default: null },
     mid:     { type: Number, default: null },
     above70: { type: Number, default: null },
   },
+  avgMarks: { type: Number, default: null },
 
   engagementLevel:      { type: String, enum: ['Low', 'Medium', 'High', 'Excellent'], default: null },
   skillProgressLevel:   { type: String, enum: ['Low', 'Medium', 'High', 'Excellent'], default: null },
