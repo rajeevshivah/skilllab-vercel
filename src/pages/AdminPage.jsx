@@ -9,13 +9,38 @@ const lStyle = { display:'block',fontSize:11,fontWeight:600,letterSpacing:'0.08e
 export default function AdminPage() {
   const { user, isSuperAdmin, isTrainer } = useAuth()
   const { opts, loading: configLoading } = useConfig()
-  // Fallbacks ensure form never crashes while config loads
-  const STREAMS  = opts('stream').length  ? opts('stream')  : ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
-  const COURSES  = opts('course').length  ? opts('course')  : ['B.Tech','BCA']
-  const SEMS     = opts('sem').length     ? opts('sem')     : ['2nd Sem','4th Sem','6th Sem']
-  const YEARS    = opts('year').length    ? opts('year')    : ['1st Year','2nd Year','3rd Year']
-  const CYCLES   = opts('cycle').length   ? opts('cycle')   : ['Cycle 1','Cycle 2','Cycle 3','Cycle 4','Cycle 5']
-  const SECTIONS = opts('section').length ? opts('section') : ['Sec A','Sec B','Sec C','F104']
+
+  // All config options (for superadmin)
+  const ALL_STREAMS  = opts('stream').length  ? opts('stream')  : ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
+  const ALL_COURSES  = opts('course').length  ? opts('course')  : ['B.Tech','BCA']
+  const ALL_SEMS     = opts('sem').length     ? opts('sem')     : ['2nd Sem','4th Sem','6th Sem']
+  const ALL_YEARS    = opts('year').length    ? opts('year')    : ['1st Year','2nd Year','3rd Year']
+  const ALL_CYCLES   = opts('cycle').length   ? opts('cycle')   : ['Cycle 1','Cycle 2','Cycle 3','Cycle 4','Cycle 5']
+  const ALL_SECTIONS = opts('section').length ? opts('section') : ['Sec A','Sec B','Sec C','F104']
+
+  // For trainers — derive allowed options from their assignedSections
+  const assignedSections = user?.assignedSections || []
+  const isRestricted = !isSuperAdmin && assignedSections.length > 0
+
+  // Filtered options based on current form stream selection
+  function getAllowedOpts(key, currentForm) {
+    if (isSuperAdmin || assignedSections.length === 0) {
+      return { stream: ALL_STREAMS, course: ALL_COURSES, section: ALL_SECTIONS, year: ALL_YEARS, sem: ALL_SEMS }[key]
+    }
+    // Filter based on what's in assignedSections
+    const relevant = assignedSections.filter(a => !currentForm?.stream || a.stream === currentForm.stream)
+    const unique = (arr) => [...new Set(arr.filter(Boolean))]
+    return {
+      stream:  unique(assignedSections.map(a => a.stream)),
+      course:  unique(relevant.map(a => a.course)),
+      section: unique(relevant.filter(a => !currentForm?.course || a.course === currentForm.course).map(a => a.section)),
+      year:    unique(relevant.filter(a => !currentForm?.course || a.course === currentForm.course).map(a => a.year).filter(y => y && y !== '')),
+      sem:     unique(relevant.filter(a => !currentForm?.course || a.course === currentForm.course).map(a => a.sem).filter(s => s && s !== '')),
+    }[key] || []
+  }
+
+  // Shorthand — use ALL_ for superadmin, filtered for trainers
+  const CYCLES = ALL_CYCLES
   const [students, setStudents] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [saving,   setSaving]   = useState(false)
@@ -24,10 +49,14 @@ export default function AdminPage() {
   const [filterCycle, setFilterCycle] = useState('')
   const [cycles, setCycles] = useState([])
 
+  const firstSection = user?.assignedSections?.[0] || {}
   const [form, setForm] = useState({
-    name:'', roll:'', rank:'1', stream: user?.assignedStream || 'AI / ML',
-    course: user?.assignedCourse || 'B.Tech', sem:'2nd Sem',
-    section: user?.assignedSection || '', year:'1st Year',
+    name:'', roll:'', rank:'1',
+    stream:  firstSection.stream  || user?.assignedStream  || 'AI / ML',
+    course:  firstSection.course  || user?.assignedCourse  || 'B.Tech',
+    sem:     firstSection.sem     || '2nd Sem',
+    section: firstSection.section || user?.assignedSection || '',
+    year:    firstSection.year    || '1st Year',
     cycle:'Cycle 2', project:'', photo:''
   })
 
@@ -43,12 +72,8 @@ export default function AdminPage() {
     try {
       const params = {}
       if (filterCycle) params.cycle = filterCycle
-      // Non-superadmins only see their section
-      if (!isSuperAdmin && user?.assignedSection) {
-        params.section = user.assignedSection
-        params.stream  = user.assignedStream
-        params.course  = user.assignedCourse
-      }
+      // Non-superadmins see students from all their assigned sections
+      // (no section filter = fetch all, then filter client-side if needed)
       const { data } = await studentsAPI.list( )
       setStudents(data.students)
       const c = await studentsAPI.getCycles()
@@ -120,9 +145,13 @@ export default function AdminPage() {
 
   function clearForm() {
     setEditingId(null)
-    setForm({ name:'', roll:'', rank:'1', stream: user?.assignedStream||'AI / ML',
-      course: user?.assignedCourse||'B.Tech', sem:'2nd Sem',
-      section: user?.assignedSection||'', year:'1st Year',
+    const fs = user?.assignedSections?.[0] || {}
+    setForm({ name:'', roll:'', rank:'1',
+      stream:  fs.stream  || user?.assignedStream  || 'AI / ML',
+      course:  fs.course  || user?.assignedCourse  || 'B.Tech',
+      sem:     fs.sem     || '2nd Sem',
+      section: fs.section || user?.assignedSection || '',
+      year:    fs.year    || '1st Year',
       cycle:'Cycle 2', project:'', photo:'' })
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -174,8 +203,8 @@ export default function AdminPage() {
                 <option value="3" style={{background:'#0A1628'}}>3rd — Trailblazer</option>
               </select></div>
             <div><label style={lStyle}>Stream *</label>
-              <select style={iStyle} value={form.stream} onChange={e=>set('stream',e.target.value)} disabled={!isSuperAdmin && !!user?.assignedStream}>
-                {STREAMS.map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
+              <select style={iStyle} value={form.stream} onChange={e=>{set('stream',e.target.value); set('course',''); set('section','')}}>
+                {getAllowedOpts('stream',form).map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
               </select></div>
             <div><label style={lStyle}>Cycle *</label>
               <select style={iStyle} value={form.cycle} onChange={e=>set('cycle',e.target.value)}>
@@ -184,23 +213,23 @@ export default function AdminPage() {
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,marginBottom:14}}>
             <div><label style={lStyle}>Course *</label>
-              <select style={iStyle} value={form.course} onChange={e=>set('course',e.target.value)} disabled={!isSuperAdmin && !!user?.assignedCourse}>
-                {COURSES.map(c=><option key={c} value={c} style={{background:'#0A1628'}}>{c}</option>)}
+              <select style={iStyle} value={form.course} onChange={e=>{set('course',e.target.value); set('section','')}}>
+                {getAllowedOpts('course',form).map(c=><option key={c} value={c} style={{background:'#0A1628'}}>{c}</option>)}
               </select></div>
             <div><label style={lStyle}>Semester *</label>
               <select style={iStyle} value={form.sem} onChange={e=>set('sem',e.target.value)}>
-                {SEMS.map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
+                {(getAllowedOpts('sem',form).length ? getAllowedOpts('sem',form) : ALL_SEMS).map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
               </select></div>
             <div><label style={lStyle}>Section *</label>
-              <select style={iStyle} value={form.section} onChange={e=>set('section',e.target.value)} disabled={!isSuperAdmin && !!user?.assignedSection}>
+              <select style={iStyle} value={form.section} onChange={e=>set('section',e.target.value)}>
                 <option value="" style={{background:'#0A1628'}}>Select section</option>
-                {SECTIONS.map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
+                {getAllowedOpts('section',form).map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
               </select></div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
             <div><label style={lStyle}>Year</label>
               <select style={iStyle} value={form.year} onChange={e=>set('year',e.target.value)}>
-                {YEARS.map(y=><option key={y} value={y} style={{background:'#0A1628'}}>{y}</option>)}
+                {(getAllowedOpts('year',form).length ? getAllowedOpts('year',form) : ALL_YEARS).map(y=><option key={y} value={y} style={{background:'#0A1628'}}>{y}</option>)}
               </select></div>
             <div><label style={lStyle}>Project Name</label><input style={iStyle} value={form.project} onChange={e=>set('project',e.target.value)} placeholder="e.g. Salary Calculator" /></div>
           </div>

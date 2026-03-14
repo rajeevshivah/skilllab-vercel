@@ -13,6 +13,17 @@ export default async function handler(req, res) {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password required' });
 
+    // Auto-create superadmin if no users exist yet (first time setup)
+    const userCount = await User.countDocuments();
+    if (userCount === 0) {
+      await User.create({
+        name:     'Super Admin',
+        email:    'admin@sheat.ac.in',
+        password: 'sheat@admin2026',
+        role:     'superadmin',
+      });
+    }
+
     const user = await User.findOne({ email });
     if (!user || !(await user.comparePassword(password)))
       return res.status(401).json({ message: 'Invalid email or password' });
@@ -22,6 +33,7 @@ export default async function handler(req, res) {
     res.json({
       token,
       user: { id: user._id, name: user.name, email: user.email, role: user.role,
+        assignedSections: user.assignedSections || [],
         assignedStream: user.assignedStream, assignedSection: user.assignedSection, assignedCourse: user.assignedCourse }
     });
   } catch (err) {
