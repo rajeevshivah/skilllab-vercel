@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { authAPI, studentsAPI } from '../api'
+import { studentsAPI } from '../api'
 
 const STREAM_COLORS = {
   'AI / ML':'#1E40AF','MERN Stack':'#7C3AED',
@@ -9,11 +9,14 @@ const RANK_LABELS = { 1:'Pioneer', 2:'Vanguard', 3:'Trailblazer' }
 const STREAM_ORDER = ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
 
 export default function PublicPage() {
-  const [students,     setStudents]     = useState([])
-  const [cycles,       setCycles]       = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [filters,      setFilters]      = useState({ stream:'', cycle:'', year:'', search:'' })
-  const [activeCycles, setActiveCycles] = useState([]) // [{value, label, order}]
+  const [students,    setStudents]    = useState([])
+  const [cycles,      setCycles]      = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [inProgress,  setInProgress]  = useState([]) // [{cycle, date, label}] — currently running
+  const [filterCycle, setFilterCycle] = useState('') // '' = auto (show latest per group)
+  const [filterStream,setFilterStream]= useState('')
+  const [filterYear,  setFilterYear]  = useState('')
+  const [search,      setSearch]      = useState('')
   const photoCache = useRef({})
 
   useEffect(() => {
@@ -22,78 +25,79 @@ export default function PublicPage() {
       studentsAPI.getCycles(),
       fetch('/api/config').then(r => r.json()),
     ]).then(([sr, cr, cfgData]) => {
-      const allStudents = sr.data.students
-      setStudents(allStudents)
+      setStudents(sr.data.students)
       setCycles(cr.data.cycles)
-
-      // Get active cycle config
-      const activeCfg = cfgData.config?.activeCycle || []
-      setActiveCycles(activeCfg)
-
-      // Set default filter to active cycle
-      // order=0 is main active cycle, order=1 is 1st year override
-      const mainActive = activeCfg.find(a => a.order === 0)
-      if (mainActive?.value) {
-        setFilters(f => ({ ...f, cycle: mainActive.value }))
-      }
+      // inProgress cycles come from config type 'inProgress'
+      const ip = cfgData.config?.inProgress || []
+      setInProgress(ip)
     }).finally(() => setLoading(false))
   }, [])
 
-  // Get active cycle for a specific student (1st year may have different active cycle)
-  function getActiveCycleForYear(year) {
-    const year1Active = activeCycles.find(a => a.order === 1)
-    const mainActive  = activeCycles.find(a => a.order === 0)
-    if (year === '1st Year' && year1Active?.value) return year1Active
-    return mainActive || null
-  }
+  // ── Core logic: for each stream+course+year group, find latest cycle in DB ──
+  // Returns map: { "AI / ML|B.Tech|3rd Year" => "Cycle 3", "C Programming...|BCA|1st Year" => "Cycle 1" }
+  const latestCyclePerGroup = (() => {
+    const map = {}
+    students.forEach(s => {
+      const key = `${s.stream}|${s.course}|${s.year}`
+      if (!map[key]) map[key] = []
+      if (!map[key].includes(s.cycle)) map[key].push(s.cycle)
+    })
+    // Sort cycles and pick the last one
+    const result = {}
+    Object.entries(map).forEach(([key, cycs]) => {
+      result[key] = cycs.sort((a,b) => {
+        const na = parseInt(a.replace(/\D/g,'')) || 0
+        const nb = parseInt(b.replace(/\D/g,'')) || 0
+        return nb - na
+      })[0]
+    })
+    return result
+  })()
 
+  // ── Filter students ──
   const filtered = students.filter(s => {
-    // If cycle filter is set, use it
-    // But for 1st year students, use their own active cycle when on default view
-    if (filters.cycle) {
-      const year1Active = activeCycles.find(a => a.order === 1)
-      if (year1Active?.value && s.year === '1st Year' && filters.cycle !== year1Active.value) {
-        // Show 1st year students with their own active cycle
-        if (s.cycle !== year1Active.value) return false
-      } else if (s.cycle !== filters.cycle) {
-        return false
-      }
+    // Cycle filter
+    if (filterCycle) {
+      if (s.cycle !== filterCycle) return false
+    } else {
+      // Auto mode — show latest cycle per stream+course+year group
+      const key = `${s.stream}|${s.course}|${s.year}`
+      const latest = latestCyclePerGroup[key]
+      if (latest && s.cycle !== latest) return false
     }
-    if (filters.stream && s.stream !== filters.stream) return false
-    if (filters.year   && s.year   !== filters.year)   return false
-    if (filters.search) {
-      const q = filters.search.toLowerCase()
+    if (filterStream && s.stream !== filterStream) return false
+    if (filterYear   && s.year   !== filterYear)   return false
+    if (search) {
+      const q = search.toLowerCase()
       if (!s.name.toLowerCase().includes(q) && !s.roll?.toLowerCase().includes(q)) return false
     }
     return true
   })
 
-  // Group
+  // Group by stream → section key
   const grouped = {}
   filtered.forEach(s => {
     if (!grouped[s.stream]) grouped[s.stream] = {}
-    const k = `${s.course}|${s.sem}|${s.section}`
+    const k = `${s.course}|${s.sem}|${s.section}|${s.year}`
     if (!grouped[s.stream][k]) grouped[s.stream][k] = []
     grouped[s.stream][k].push(s)
   })
 
+  // What cycles are currently showing (for banner)
+  const showingCycles = filterCycle
+    ? [filterCycle]
+    : [...new Set(Object.values(latestCyclePerGroup))]
+
   async function getPhoto(id) {
     if (photoCache.current[id] !== undefined) return photoCache.current[id]
     try {
-      // Fetch photo directly — avoids any routing conflicts
       const base = import.meta.env.VITE_API_URL || '/api'
-      const res  = await fetch(`${base}/students/${id}?photo=1`, {
-        headers: { 'Content-Type': 'application/json' }
-      })
+      const res  = await fetch(`${base}/students/${id}?photo=1`)
       if (!res.ok) { photoCache.current[id] = null; return null }
       const data = await res.json()
       photoCache.current[id] = data.photo || null
       return photoCache.current[id]
-    } catch (e) {
-      console.error('Photo fetch error:', e)
-      photoCache.current[id] = null
-      return null
-    }
+    } catch { photoCache.current[id] = null; return null }
   }
 
   if (loading) return (
@@ -121,8 +125,8 @@ export default function PublicPage() {
           <div style={{display:'flex',gap:12,flexWrap:'wrap',justifyContent:'center'}}>
             {[
               [new Set(students.map(s=>s.stream)).size, 'Streams'],
-              [students.length, 'Toppers'],
-              [new Set(students.map(s=>`${s.course}|${s.section}`)).size, 'Sections'],
+              [students.length, 'Total Toppers'],
+              [new Set(students.map(s=>`${s.course}|${s.section}|${s.year}`)).size, 'Sections'],
               [cycles.length, 'Cycles'],
             ].map(([v, l]) => (
               <div key={l} style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:10,padding:'10px 20px',display:'flex',flexDirection:'column',alignItems:'center',minWidth:90}}>
@@ -137,51 +141,71 @@ export default function PublicPage() {
 
       <div style={{maxWidth:1100,margin:'0 auto',padding:'40px 24px'}}>
 
-        {/* Active Cycle Info Banner */}
-        {activeCycles.length > 0 && (
-          <div style={{background:'rgba(234,179,8,0.08)',border:'1px solid rgba(234,179,8,0.2)',
-            borderRadius:12,padding:'12px 20px',marginBottom:24,display:'flex',flexWrap:'wrap',gap:16,alignItems:'center'}}>
-            <span style={{fontSize:13,color:'var(--gold)',fontWeight:600}}>📅 Current Cycle</span>
-            {activeCycles.filter(a=>a.order===0).map(a=>(
-              <span key={a._id} style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>
-                <span style={{color:'white',fontWeight:600}}>{a.value}</span>
-                {a.label && <span style={{color:'rgba(255,255,255,0.45)'}}> · Ended {a.label}</span>}
+        {/* In Progress Banner */}
+        {inProgress.length > 0 && !filterCycle && (
+          <div style={{background:'rgba(37,99,235,0.08)',border:'1px solid rgba(37,99,235,0.2)',
+            borderRadius:12,padding:'14px 20px',marginBottom:16,display:'flex',flexWrap:'wrap',gap:12,alignItems:'center'}}>
+            <span style={{fontSize:13,color:'#93C5FD',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
+              <span style={{width:7,height:7,borderRadius:'50%',background:'#3B82F6',display:'inline-block',animation:'pulse 2s infinite'}} />
+              Currently Running
+            </span>
+            {inProgress.map((ip,i) => (
+              <span key={i} style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>
+                <span style={{color:'white',fontWeight:600}}>{ip.value}</span>
+                {ip.label && <span style={{color:'rgba(255,255,255,0.4)'}}> · Results expected: {ip.label}</span>}
               </span>
             ))}
-            {activeCycles.filter(a=>a.order===1 && a.value).map(a=>(
-              <span key={a._id} style={{fontSize:13,color:'rgba(255,255,255,0.7)'}}>
-                <span style={{color:'#86EFAC',fontWeight:600}}>1st Year: {a.value}</span>
-                {a.label && <span style={{color:'rgba(255,255,255,0.45)'}}> · Ended {a.label}</span>}
+          </div>
+        )}
+
+        {/* Showing Banner — what's displayed right now */}
+        {!filterCycle && showingCycles.length > 0 && (
+          <div style={{background:'rgba(234,179,8,0.07)',border:'1px solid rgba(234,179,8,0.18)',
+            borderRadius:12,padding:'12px 20px',marginBottom:24,display:'flex',flexWrap:'wrap',gap:12,alignItems:'center'}}>
+            <span style={{fontSize:13,color:'var(--gold)',fontWeight:600}}>🏆 Showing</span>
+            {showingCycles.sort().map(c => (
+              <span key={c} style={{fontSize:13,padding:'3px 10px',borderRadius:6,
+                background:'rgba(234,179,8,0.12)',color:'var(--gold)',fontWeight:500}}>
+                {c}
               </span>
             ))}
-            <button onClick={()=>setFilters(f=>({...f,cycle:''}))}
-              style={{marginLeft:'auto',fontSize:11,padding:'4px 10px',background:'rgba(255,255,255,0.08)',
-                border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.5)',borderRadius:6,cursor:'pointer'}}>
-              Show all cycles
-            </button>
+            <span style={{fontSize:12,color:'rgba(255,255,255,0.35)'}}>
+              Latest completed cycle per section · Auto-updates when new results are uploaded
+            </span>
           </div>
         )}
 
         {/* Filters */}
         <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:36,alignItems:'center'}}>
           <span style={{fontSize:12,color:'var(--muted)',letterSpacing:'0.06em',textTransform:'uppercase'}}>Filter:</span>
-          {[
-            { id:'stream', opts:['','AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation'], labels:['All Streams','AI / ML','MERN Stack','Java','C Foundation'] },
-            { id:'year',   opts:['','1st Year','2nd Year','3rd Year'], labels:['All Years','1st Year','2nd Year','3rd Year'] },
-          ].map(({ id, opts, labels }) => (
-            <select key={id} value={filters[id]} onChange={e => setFilters(f=>({...f,[id]:e.target.value}))}
-              style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'8px 14px',borderRadius:8,fontSize:13,cursor:'pointer',minWidth:130}}>
-              {opts.map((o,i) => <option key={o} value={o} style={{background:'#0A1628'}}>{labels[i]}</option>)}
-            </select>
-          ))}
-          <select value={filters.cycle} onChange={e => setFilters(f=>({...f,cycle:e.target.value}))}
+
+          <select value={filterStream} onChange={e=>setFilterStream(e.target.value)}
             style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'8px 14px',borderRadius:8,fontSize:13,cursor:'pointer',minWidth:130}}>
-            <option value="" style={{background:'#0A1628'}}>All Cycles</option>
-            {cycles.map(c => <option key={c} value={c} style={{background:'#0A1628'}}>
-              {c}{activeCycles.some(a=>a.value===c) ? ' ★' : ''}
-            </option>)}
+            <option value="" style={{background:'#0A1628'}}>All Streams</option>
+            {[...new Set(students.map(s=>s.stream))].map(s=>(
+              <option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>
+            ))}
           </select>
-          <input value={filters.search} onChange={e => setFilters(f=>({...f,search:e.target.value}))}
+
+          <select value={filterYear} onChange={e=>setFilterYear(e.target.value)}
+            style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'8px 14px',borderRadius:8,fontSize:13,cursor:'pointer',minWidth:120}}>
+            <option value="" style={{background:'#0A1628'}}>All Years</option>
+            {[...new Set(students.map(s=>s.year))].sort().map(y=>(
+              <option key={y} value={y} style={{background:'#0A1628'}}>{y}</option>
+            ))}
+          </select>
+
+          <select value={filterCycle} onChange={e=>setFilterCycle(e.target.value)}
+            style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'8px 14px',borderRadius:8,fontSize:13,cursor:'pointer',minWidth:130}}>
+            <option value="" style={{background:'#0A1628'}}>Latest (Auto)</option>
+            {cycles.map(c=>(
+              <option key={c} value={c} style={{background:'#0A1628'}}>
+                {c}{showingCycles.includes(c) ? ' ★' : ''}
+              </option>
+            ))}
+          </select>
+
+          <input value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="Search by name or roll…"
             style={{flex:1,minWidth:200,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'8px 14px',borderRadius:8,fontSize:13}} />
         </div>
@@ -223,8 +247,9 @@ function StreamSection({ stream, sections, getPhoto }) {
           <div key={key}>
             {multiSec && (
               <div style={{fontSize:11,fontWeight:600,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--muted)',margin:'20px 0 12px',display:'flex',alignItems:'center',gap:8}}>
-                {rep.course} · {rep.sem} · {rep.section}
+                {rep.course} · {rep.year} · {rep.sem} · {rep.section}
                 <span style={{flex:1,height:1,background:'rgba(255,255,255,0.07)',display:'inline-block'}} />
+                <span style={{color:'rgba(234,179,8,0.6)',fontSize:10}}>{rep.cycle}</span>
               </div>
             )}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:16}}>
@@ -250,7 +275,7 @@ function TopperCard({ student: s, streamColor, getPhoto }) {
   const rankColors = {
     1: { border:'rgba(245,158,11,0.35)', stripe:'linear-gradient(90deg,var(--gold),#FCD34D)', badge:'var(--gold)', badgeFg:'var(--navy)', label:'var(--gold)' },
     2: { border:'rgba(148,163,184,0.35)', stripe:'linear-gradient(90deg,var(--silver),#CBD5E1)', badge:'var(--silver)', badgeFg:'#0A1628', label:'var(--silver)' },
-    3: { border:'rgba(180,83,9,0.35)', stripe:'linear-gradient(90deg,var(--bronze),#D97706)', badge:'var(--bronze)', badgeFg:'white', label:'var(--bronze)' },
+    3: { border:'rgba(180,83,9,0.35)',    stripe:'linear-gradient(90deg,var(--bronze),#D97706)', badge:'var(--bronze)', badgeFg:'white', label:'var(--bronze)' },
   }
   const rc = rankColors[rank]
 
