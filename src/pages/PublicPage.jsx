@@ -158,22 +158,40 @@ export default function PublicPage() {
           </div>
         )}
 
-        {/* Showing Banner — what's displayed right now */}
-        {!filterCycle && showingCycles.length > 0 && (
-          <div style={{background:'rgba(234,179,8,0.07)',border:'1px solid rgba(234,179,8,0.18)',
-            borderRadius:12,padding:'12px 20px',marginBottom:24,display:'flex',flexWrap:'wrap',gap:12,alignItems:'center'}}>
-            <span style={{fontSize:13,color:'var(--gold)',fontWeight:600}}>🏆 Showing</span>
-            {showingCycles.sort().map(c => (
-              <span key={c} style={{fontSize:13,padding:'3px 10px',borderRadius:6,
-                background:'rgba(234,179,8,0.12)',color:'var(--gold)',fontWeight:500}}>
-                {c}
-              </span>
-            ))}
-            <span style={{fontSize:12,color:'rgba(255,255,255,0.35)'}}>
-              Latest completed cycle per section · Auto-updates when new results are uploaded
-            </span>
-          </div>
-        )}
+        {/* Showing Banner — groups sections by their latest cycle */}
+        {!filterCycle && showingCycles.length > 0 && (() => {
+          // Build: { "Cycle 3": ["B.Tech 3rd Year", "BCA 3rd Year"], "Cycle 1": ["BCA 1st Year"] }
+          const cycleToGroups = {}
+          Object.entries(latestCyclePerGroup).forEach(([key, cycle]) => {
+            const [stream, course, year] = key.split('|')
+            if (!cycleToGroups[cycle]) cycleToGroups[cycle] = new Set()
+            cycleToGroups[cycle].add(`${course} ${year}`)
+          })
+          return (
+            <div style={{background:'rgba(234,179,8,0.07)',border:'1px solid rgba(234,179,8,0.18)',
+              borderRadius:12,padding:'14px 20px',marginBottom:24}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                <span style={{fontSize:13,color:'var(--gold)',fontWeight:700}}>🏆 Currently Showing</span>
+                <span style={{fontSize:11,color:'rgba(255,255,255,0.3)'}}>
+                  · Latest completed cycle per section · Auto-updates on new uploads
+                </span>
+              </div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
+                {Object.entries(cycleToGroups).sort().map(([cycle, groups]) => (
+                  <div key={cycle} style={{background:'rgba(234,179,8,0.1)',border:'1px solid rgba(234,179,8,0.25)',
+                    borderRadius:8,padding:'8px 14px'}}>
+                    <div style={{fontSize:13,fontWeight:700,color:'var(--gold)',marginBottom:4}}>{cycle}</div>
+                    <div style={{fontSize:11,color:'rgba(255,255,255,0.5)',display:'flex',flexWrap:'wrap',gap:4}}>
+                      {[...groups].sort().map(g => (
+                        <span key={g} style={{background:'rgba(255,255,255,0.06)',padding:'2px 7px',borderRadius:4}}>{g}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Filters */}
         <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:36,alignItems:'center'}}>

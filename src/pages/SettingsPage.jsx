@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import api from './api-helper'
 
 const TYPES = [
   { key:'stream',  label:'Streams / Labs',  icon:'🔬', hint:'e.g. AI / ML, MERN Stack' },
   { key:'course',  label:'Courses',          icon:'🎓', hint:'e.g. B.Tech, BCA' },
-  { key:'section', label:'Sections',         icon:'🏫', hint:'e.g. Sec A, F104' },
+  { key:'section', label:'Sections',         icon:'🏫', hint:'e.g. Sec A, Sec B' },
   { key:'sem',     label:'Semesters',        icon:'📅', hint:'e.g. 2nd Sem, 4th Sem' },
   { key:'year',    label:'Years',            icon:'📆', hint:'e.g. 1st Year, 2nd Year' },
   { key:'cycle',   label:'Cycles',           icon:'🔄', hint:'e.g. Cycle 1, Cycle 2' },
@@ -16,7 +15,6 @@ const S = {
   page:    { maxWidth:900, margin:'0 auto', padding:'40px 24px' },
   card:    { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:16, padding:24, marginBottom:20 },
   hdr:     { display:'flex', alignItems:'center', gap:10, marginBottom:16, paddingBottom:12, borderBottom:'1px solid rgba(255,255,255,0.07)' },
-  hdrIcon: { fontSize:22 },
   hdrTitle:{ fontFamily:'var(--font-d)', fontSize:17, fontWeight:700 },
   hdrHint: { fontSize:12, color:'var(--muted)', marginLeft:'auto' },
   grid:    { display:'flex', flexWrap:'wrap', gap:8, marginBottom:14 },
@@ -26,19 +24,18 @@ const S = {
     background: active ? 'rgba(37,99,235,0.2)' : 'rgba(255,255,255,0.04)',
     border: `1px solid ${active ? 'rgba(37,99,235,0.4)' : 'rgba(255,255,255,0.08)'}`,
     color: active ? '#93C5FD' : 'rgba(255,255,255,0.35)',
-    transition:'all 0.15s',
   }),
   chipBtn: { background:'none', border:'none', cursor:'pointer', padding:'0 2px', fontSize:11, color:'inherit', lineHeight:1 },
   addRow:  { display:'flex', gap:8, marginTop:4 },
-  input:   { flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'white', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'var(--font-b)' },
+  input:   { flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'white', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none' },
   addBtn:  { padding:'8px 18px', background:'var(--blue)', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer' },
 }
 
-// ── In Progress Cycle Manager ────────────────────────────────────
+// ── In Progress Manager ───────────────────────────────────────────
 function InProgressManager({ config, onSaved }) {
-  const CYCLES = (config['cycle'] || []).filter(c => c.isActive).map(c => c.value)
+  const CYCLES   = (config['cycle'] || []).filter(c => c.isActive).map(c => c.value)
   const existing = config['inProgress'] || []
-  const [rows, setRows] = useState(
+  const [rows,   setRows]   = useState(
     existing.length > 0
       ? existing.map(e => ({ id: e._id, cycle: e.value, date: e.label || '' }))
       : [{ id: null, cycle: '', date: '' }]
@@ -46,38 +43,42 @@ function InProgressManager({ config, onSaved }) {
   const [saving, setSaving] = useState(false)
   const token = localStorage.getItem('sl_token')
 
-  function addRow()         { setRows(r => [...r, { id: null, cycle: '', date: '' }]) }
-  function removeRow(i)     { setRows(r => r.filter((_,idx) => idx !== i)) }
-  function update(i, k, v)  { setRows(r => { const n=[...r]; n[i]={...n[i],[k]:v}; return n }) }
+  // Sync when config loads
+  useEffect(() => {
+    if (existing.length > 0) {
+      setRows(existing.map(e => ({ id: e._id, cycle: e.value, date: e.label || '' })))
+    }
+  }, [config])
+
+  function addRow()        { setRows(r => [...r, { id: null, cycle: '', date: '' }]) }
+  function removeRow(i)    { setRows(r => r.filter((_,idx) => idx !== i)) }
+  function update(i, k, v) { setRows(r => { const n=[...r]; n[i]={...n[i],[k]:v}; return n }) }
 
   async function save() {
     setSaving(true)
     try {
       const headers = { 'Content-Type':'application/json', Authorization:`Bearer ${token}` }
-      // Delete all existing inProgress entries
       for (const e of existing) {
         await fetch('/api/config', { method:'DELETE', headers, body: JSON.stringify({ id: e._id }) })
       }
-      // Re-create from current rows
       for (const row of rows.filter(r => r.cycle)) {
         await fetch('/api/config', { method:'POST', headers,
           body: JSON.stringify({ type:'inProgress', value: row.cycle, label: row.date, order: 0 }) })
       }
       onSaved()
-      alert('Saved!')
     } catch { alert('Failed to save') }
     finally { setSaving(false) }
   }
 
-  const iS = { background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'9px 12px',borderRadius:8,fontSize:13,outline:'none' }
-  const lS = { display:'block',fontSize:11,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',color:'rgba(255,255,255,0.4)',marginBottom:5 }
+  const iS = { background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'white', padding:'9px 12px', borderRadius:8, fontSize:13, outline:'none' }
+  const lS = { display:'block', fontSize:11, fontWeight:600, letterSpacing:'0.06em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:5 }
 
   return (
     <div style={{background:'rgba(37,99,235,0.06)',border:'1px solid rgba(37,99,235,0.2)',borderRadius:16,padding:24,marginBottom:20}}>
       <div style={{marginBottom:16,paddingBottom:12,borderBottom:'1px solid rgba(37,99,235,0.15)'}}>
         <p style={{fontFamily:'var(--font-d)',fontSize:17,fontWeight:700,margin:0}}>⚡ Currently Running Cycles</p>
         <p style={{fontSize:12,color:'var(--muted)',margin:'4px 0 0'}}>
-          Hall of Fame auto-shows latest uploaded cycle per section. Set running cycles here to show a "Results coming soon" banner to visitors.
+          Hall of Fame auto-shows the latest uploaded cycle per section. Add running cycles here to show visitors a "Results coming soon" banner.
         </p>
       </div>
 
@@ -109,7 +110,7 @@ function InProgressManager({ config, onSaved }) {
         <button type="button" onClick={addRow}
           style={{padding:'8px 16px',background:'rgba(37,99,235,0.15)',border:'1px solid rgba(37,99,235,0.3)',
             color:'#93C5FD',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
-          + Add Another Cycle
+          + Add Another
         </button>
         <button onClick={save} disabled={saving}
           style={{padding:'8px 24px',background:'rgba(37,99,235,0.3)',border:'1px solid rgba(37,99,235,0.5)',
@@ -117,20 +118,20 @@ function InProgressManager({ config, onSaved }) {
           {saving ? 'Saving…' : '💾 Save'}
         </button>
       </div>
-
-      <p style={{fontSize:11,color:'rgba(255,255,255,0.2)',marginTop:12}}>
-        💡 Once you upload toppers for a cycle, remove it from here — Hall of Fame will automatically show the new results.
+      <p style={{fontSize:11,color:'rgba(255,255,255,0.2)',marginTop:10}}>
+        💡 Once you upload toppers for a cycle, remove it from here — Hall of Fame switches automatically.
       </p>
     </div>
   )
 }
 
+// ── Main Settings Page ────────────────────────────────────────────
 export default function SettingsPage() {
   const { isSuperAdmin } = useAuth()
   const navigate = useNavigate()
   const [config,  setConfig]  = useState({})
   const [loading, setLoading] = useState(true)
-  const [inputs,  setInputs]  = useState({}) // { stream: '', course: '', ... }
+  const [inputs,  setInputs]  = useState({})
   const [alert,   setAlert]   = useState(null)
   const [saving,  setSaving]  = useState({})
 
@@ -141,7 +142,8 @@ export default function SettingsPage() {
 
   async function fetchConfig() {
     try {
-      const { data } = await api.get('/api/config?all=1')
+      const res  = await fetch('/api/config?all=1')
+      const data = await res.json()
       setConfig(data.config)
     } catch { showAlert('Failed to load config', 'error') }
     finally { setLoading(false) }
@@ -152,32 +154,46 @@ export default function SettingsPage() {
     if (!value) return
     setSaving(s => ({ ...s, [type]: true }))
     try {
-      const { data } = await api.post('/api/config', { type, value })
-      setConfig(c => ({ ...c, [type]: [...(c[type] || []), data.item].sort((a,b) => a.value.localeCompare(b.value)) }))
+      const res  = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('sl_token')}` },
+        body: JSON.stringify({ type, value })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message)
+      setConfig(c => ({ ...c, [type]: [...(c[type] || []), data.item] }))
       setInputs(i => ({ ...i, [type]: '' }))
-      showAlert(`"${value}" added to ${type}s`, 'success')
-    } catch (err) { showAlert(err.response?.data?.message || 'Failed', 'error') }
+      showAlert(`"${value}" added`, 'success')
+    } catch (err) { showAlert(err.message || 'Failed', 'error') }
     finally { setSaving(s => ({ ...s, [type]: false })) }
   }
 
-  async function toggleItem(item) {
+  async function toggleItem(item, type) {
     try {
-      const { data } = await api.patch('/api/config', { id: item._id, isActive: !item.isActive })
+      await fetch('/api/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('sl_token')}` },
+        body: JSON.stringify({ id: item._id, isActive: !item.isActive })
+      })
       setConfig(c => {
         const updated = { ...c }
-        updated[item.type] = updated[item.type].map(i => i._id === item._id ? { ...i, isActive: data.item.isActive } : i)
+        updated[type] = updated[type].map(i => i._id === item._id ? { ...i, isActive: !item.isActive } : i)
         return updated
       })
     } catch { showAlert('Failed to update', 'error') }
   }
 
-  async function deleteItem(item) {
-    if (!confirm(`Permanently delete "${item.value}"? This cannot be undone.`)) return
+  async function deleteItem(item, type) {
+    if (!confirm(`Permanently delete "${item.value}"?`)) return
     try {
-      await api.delete('/api/config', { data: { id: item._id } })
+      await fetch('/api/config', {
+        method: 'DELETE',
+        headers: { 'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('sl_token')}` },
+        body: JSON.stringify({ id: item._id })
+      })
       setConfig(c => {
         const updated = { ...c }
-        updated[item.type] = updated[item.type].filter(i => i._id !== item._id)
+        updated[type] = updated[type].filter(i => i._id !== item._id)
         return updated
       })
       showAlert(`"${item.value}" deleted`, 'success')
@@ -192,10 +208,8 @@ export default function SettingsPage() {
     <div style={S.page}>
       <div style={{marginBottom:32}}>
         <h1 style={{fontFamily:'var(--font-d)',fontSize:28}}>⚙️ Settings</h1>
-        <p style={{fontSize:13,color:'var(--muted)',marginTop:4}}>Manage dropdown options — no code changes needed</p>
+        <p style={{fontSize:13,color:'var(--muted)',marginTop:4}}>Manage dropdown options and cycle status — no code changes needed</p>
       </div>
-
-      <ActiveCycleManager config={config} onSaved={fetchConfig} />
 
       {alert && (
         <div style={{padding:'12px 16px',borderRadius:10,fontSize:13,marginBottom:20,
@@ -206,10 +220,12 @@ export default function SettingsPage() {
         </div>
       )}
 
+      <InProgressManager config={config} onSaved={fetchConfig} />
+
       {TYPES.map(({ key, label, icon, hint }) => (
         <div key={key} style={S.card}>
           <div style={S.hdr}>
-            <span style={S.hdrIcon}>{icon}</span>
+            <span style={{fontSize:22}}>{icon}</span>
             <span style={S.hdrTitle}>{label}</span>
             <span style={S.hdrHint}>{hint}</span>
           </div>
@@ -218,10 +234,10 @@ export default function SettingsPage() {
             {(config[key] || []).map(item => (
               <div key={item._id} style={S.chip(item.isActive)}>
                 <span>{item.value}</span>
-                <button style={S.chipBtn} title={item.isActive ? 'Deactivate' : 'Activate'} onClick={() => toggleItem({...item, type: key})}>
+                <button style={S.chipBtn} title={item.isActive ? 'Deactivate' : 'Activate'} onClick={() => toggleItem(item, key)}>
                   {item.isActive ? '👁' : '🚫'}
                 </button>
-                <button style={{...S.chipBtn, color:'#FCA5A5'}} title="Delete permanently" onClick={() => deleteItem({...item, type: key})}>
+                <button style={{...S.chipBtn, color:'#FCA5A5'}} title="Delete permanently" onClick={() => deleteItem(item, key)}>
                   ✕
                 </button>
               </div>
@@ -232,20 +248,16 @@ export default function SettingsPage() {
           </div>
 
           <div style={S.addRow}>
-            <input
-              style={S.input}
-              placeholder={`Add new ${key}… (${hint})`}
+            <input style={S.input} placeholder={`Add new ${key}… (${hint})`}
               value={inputs[key] || ''}
               onChange={e => setInputs(i => ({ ...i, [key]: e.target.value }))}
-              onKeyDown={e => e.key === 'Enter' && addItem(key)}
-            />
+              onKeyDown={e => e.key === 'Enter' && addItem(key)} />
             <button style={S.addBtn} onClick={() => addItem(key)} disabled={saving[key]}>
               {saving[key] ? '…' : '+ Add'}
             </button>
           </div>
-
           <p style={{fontSize:11,color:'rgba(255,255,255,0.2)',marginTop:8}}>
-            👁 = visible in dropdowns &nbsp;·&nbsp; 🚫 = hidden but kept &nbsp;·&nbsp; ✕ = permanently deleted
+            👁 = visible in dropdowns · 🚫 = hidden but kept · ✕ = permanently deleted
           </p>
         </div>
       ))}
