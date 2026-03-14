@@ -31,4 +31,21 @@ export const studentsAPI = {
   update:    (id, d)  => api.put(`/students/${id}`, d),
   delete:    (id)     => api.delete(`/students/${id}`),
 }
+
+export const reportsAPI = {
+  // Trainer: get my reports, or superadmin: get all
+  list:     (p)      => api.get('/reports', { params: p }),
+  // Get one report by id
+  get:      (id)     => api.get(`/reports/${id}`),
+  // Create or update draft (upsert by section+cycle identity)
+  save:     (d)      => api.post('/reports', d),
+  // Update an existing draft
+  update:   (id, d)  => api.patch(`/reports/${id}`, d),
+  // Trainer submits
+  submit:   (id)     => api.post(`/reports/${id}/submit`),
+  // Superadmin locks
+  lock:     (id)     => api.post(`/reports/${id}/lock`),
+  // Download DOCX
+  download: (id)     => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
+}
 export default api

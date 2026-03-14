@@ -2,16 +2,21 @@
   "buildCommand": "vite build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/auth/login",       "destination": "/api/auth/login" },
-    { "source": "/api/auth/me",          "destination": "/api/auth/me" },
-    { "source": "/api/auth/users/:id",   "destination": "/api/auth/users/[id]" },
-    { "source": "/api/auth/users",       "destination": "/api/auth/users" },
-    { "source": "/api/auth/debug",       "destination": "/api/auth/debug" },
-    { "source": "/api/students/cycles",  "destination": "/api/students/cycles" },
-    { "source": "/api/students/:id",     "destination": "/api/students/[id]" },
-    { "source": "/api/students",         "destination": "/api/students/index" },
-    { "source": "/api/config",           "destination": "/api/config" },
-    { "source": "/api/health",           "destination": "/api/health" },
-    { "source": "/(.*)",                 "destination": "/index.html" }
+    { "source": "/api/auth/login",              "destination": "/api/auth/login" },
+    { "source": "/api/auth/me",                 "destination": "/api/auth/me" },
+    { "source": "/api/auth/users/:id",          "destination": "/api/auth/users/[id]" },
+    { "source": "/api/auth/users",              "destination": "/api/auth/users" },
+    { "source": "/api/auth/debug",              "destination": "/api/auth/debug" },
+    { "source": "/api/students/cycles",         "destination": "/api/students/cycles" },
+    { "source": "/api/students/:id",            "destination": "/api/students/[id]" },
+    { "source": "/api/students",                "destination": "/api/students/index" },
+    { "source": "/api/config",                  "destination": "/api/config" },
+    { "source": "/api/health",                  "destination": "/api/health" },
+    { "source": "/api/reports/:id/download",    "destination": "/api/reports/download/[id]" },
+    { "source": "/api/reports/:id/submit",      "destination": "/api/reports/[id]" },
+    { "source": "/api/reports/:id/lock",        "destination": "/api/reports/[id]" },
+    { "source": "/api/reports/:id",             "destination": "/api/reports/[id]" },
+    { "source": "/api/reports",                 "destination": "/api/reports/index" },
+    { "source": "/(.*)",                        "destination": "/index.html" }
   ]
 }

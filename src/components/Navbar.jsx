@@ -18,6 +18,8 @@ export default function Navbar() {
   const nav = useNavigate()
 
   const handleLogout = () => { logout(); nav('/') }
+  const isSuperadmin = user?.role === 'superadmin'
+  const isTrainerOrAbove = user?.role === 'trainer' || isSuperadmin
 
   return (
     <nav style={S.nav}>
@@ -32,12 +34,22 @@ export default function Navbar() {
               <button style={S.tab(loc.pathname === '/admin')}>⚙️ Manage</button>
             </Link>
           )}
-          {user?.role === 'superadmin' && (
+          {isTrainerOrAbove && (
+            <Link to="/report">
+              <button style={S.tab(loc.pathname === '/report')}>📋 My Report</button>
+            </Link>
+          )}
+          {isSuperadmin && (
+            <Link to="/reports">
+              <button style={S.tab(loc.pathname === '/reports')}>📊 Reports</button>
+            </Link>
+          )}
+          {isSuperadmin && (
             <Link to="/users">
               <button style={S.tab(loc.pathname === '/users')}>👥 Users</button>
             </Link>
           )}
-          {user?.role === 'superadmin' && (
+          {isSuperadmin && (
             <Link to="/settings">
               <button style={S.tab(loc.pathname === '/settings')}>🔧 Settings</button>
             </Link>

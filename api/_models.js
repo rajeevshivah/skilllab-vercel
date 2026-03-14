@@ -82,6 +82,60 @@ const configItemSchema = new mongoose.Schema({
 
 configItemSchema.index({ type: 1, value: 1 }, { unique: true });
 
-export const User       = mongoose.models.User       || mongoose.model('User',       userSchema);
-export const Student    = mongoose.models.Student    || mongoose.model('Student',    studentSchema);
-export const ConfigItem = mongoose.models.ConfigItem || mongoose.model('ConfigItem', configItemSchema);
+// export const User       = mongoose.models.User       || mongoose.model('User',       userSchema);
+// export const Student    = mongoose.models.Student    || mongoose.model('Student',    studentSchema);
+// export const ConfigItem = mongoose.models.ConfigItem || mongoose.model('ConfigItem', configItemSchema);
+
+// ── SectionCycle (Phase 2 — Trainer Cycle Reports) ───────────────
+const sectionCycleSchema = new mongoose.Schema({
+  stream:  { type: String, required: true },
+  course:  { type: String, required: true },
+  year:    { type: String, required: true },
+  sem:     { type: String, required: true },
+  section: { type: String, required: true },
+  cycle:   { type: String, required: true },
+
+  trainer:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  coTrainerName: { type: String, default: '' },
+
+  startDate: { type: Date, default: null },
+  endDate:   { type: Date, default: null },
+
+  projectConducted: { type: Boolean, default: false },
+
+  attendance: {
+    totalStudents: { type: Number, default: null },
+    avgPercent:    { type: Number, default: null },
+  },
+
+  marks: {
+    below40: { type: Number, default: null },
+    mid:     { type: Number, default: null },
+    above70: { type: Number, default: null },
+  },
+
+  engagementLevel:      { type: String, enum: ['Low', 'Medium', 'High', 'Excellent'], default: null },
+  skillProgressLevel:   { type: String, enum: ['Low', 'Medium', 'High', 'Excellent'], default: null },
+  topicsCovered:        [{ type: String }],
+  challenges:           { type: String, default: '' },
+  operationalChallenges:{ type: String, default: '' },
+  achievements:         { type: String, default: '' },
+  recommendations:      [{ type: String }],
+  summary:              { type: String, default: '' },
+
+  status:      { type: String, enum: ['draft', 'submitted', 'locked'], default: 'draft' },
+  submittedAt: { type: Date, default: null },
+  lockedAt:    { type: Date, default: null },
+  lockedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+
+}, { timestamps: true });
+
+sectionCycleSchema.index(
+  { stream: 1, course: 1, year: 1, sem: 1, section: 1, cycle: 1 },
+  { unique: true }
+);
+
+export const User         = mongoose.models.User         || mongoose.model('User',         userSchema);
+export const Student      = mongoose.models.Student      || mongoose.model('Student',      studentSchema);
+export const ConfigItem   = mongoose.models.ConfigItem   || mongoose.model('ConfigItem',   configItemSchema);
+export const SectionCycle = mongoose.models.SectionCycle || mongoose.model('SectionCycle', sectionCycleSchema);
