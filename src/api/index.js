@@ -46,6 +46,7 @@ export const reportsAPI = {
   // Superadmin locks
   lock:     (id)     => api.post(`/reports/${id}/lock`),
   // Download DOCX
-  download: (id)     => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
+  download:         (id)    => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
+  combinedDownload: (cycle) => api.get(`/reports?combined=1&cycle=${encodeURIComponent(cycle)}`, { responseType: 'blob' }),
 }
 export default api

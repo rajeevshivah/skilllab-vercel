@@ -156,7 +156,7 @@ export default function ReportPage() {
 
   const isLocked    = status === 'locked'
   const isSubmitted = status === 'submitted'
-  const readOnly    = isLocked || isSubmitted
+  const readOnly = isLocked
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))

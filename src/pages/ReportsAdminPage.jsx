@@ -75,6 +75,21 @@ export default function ReportsAdminPage() {
     } finally { setBusy(b => ({ ...b, [r._id]: false })) }
   }
 
+async function handleCombinedDownload(cycle) {
+  setBusy(b => ({ ...b, combined: true }))
+  try {
+    const res = await reportsAPI.combinedDownload(cycle)
+    const url = URL.createObjectURL(new Blob([res.data]))
+    const a   = document.createElement('a')
+    a.href    = url
+    a.download = `SkillLab_${cycle}_Combined_Report.docx`.replace(/\s+/g, '_')
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    alert('Combined download failed. Make sure at least one report is submitted for this cycle.')
+  } finally { setBusy(b => ({ ...b, combined: false })) }
+}
+
   return (
     <div style={S.page}>
       <div style={S.title}>📊 All Cycle Reports</div>
@@ -91,8 +106,14 @@ export default function ReportsAdminPage() {
           <option value="">All cycles</option>
           {cycles.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <button style={{ ...S.btnDl, border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }} onClick={load}>↻ Refresh</button>
-      </div>
+      <button style={{ ...S.btnDl, border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }} onClick={load}>↻ Refresh</button>
+{filter.cycle && (
+  <button style={{ ...S.btnDl, background: 'rgba(26,60,94,0.3)', border: '1px solid #1A3C5E' }}
+    onClick={() => handleCombinedDownload(filter.cycle)}
+    disabled={!!busy['combined']}>
+    {busy['combined'] ? 'Generating…' : `⬇ Combined DOCX — ${filter.cycle}`}
+  </button>
+)}</div>
 
       {loading
         ? <div style={S.empty}>Loading…</div>
