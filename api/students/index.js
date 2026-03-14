@@ -52,7 +52,8 @@ export default async function handler(req, res) {
 
     if (me.role !== 'superadmin') {
       const allowed = me.assignedSections?.some(a =>
-        a.stream === stream && a.course === course && a.section === section &&
+        a.stream === stream && a.course === course &&
+        (a.sections?.includes(section) || a.sections?.length === 0) &&
         (!a.year || a.year === year) && (!a.sem || a.sem === sem)
       ) || (me.assignedStream === stream && me.assignedCourse === course && me.assignedSection === section);
       if (!allowed) return res.status(403).json({ message: 'You can only add students to your assigned sections' });

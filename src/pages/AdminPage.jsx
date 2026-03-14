@@ -27,15 +27,17 @@ export default function AdminPage() {
     if (isSuperAdmin || assignedSections.length === 0) {
       return { stream: ALL_STREAMS, course: ALL_COURSES, section: ALL_SECTIONS, year: ALL_YEARS, sem: ALL_SEMS }[key]
     }
-    // Filter based on what's in assignedSections
-    const relevant = assignedSections.filter(a => !currentForm?.stream || a.stream === currentForm.stream)
     const unique = (arr) => [...new Set(arr.filter(Boolean))]
+    // Filter rows matching current stream selection
+    const byStream  = assignedSections.filter(a => !currentForm?.stream || a.stream === currentForm.stream)
+    const byCourse  = byStream.filter(a => !currentForm?.course || a.course === currentForm.course)
     return {
       stream:  unique(assignedSections.map(a => a.stream)),
-      course:  unique(relevant.map(a => a.course)),
-      section: unique(relevant.filter(a => !currentForm?.course || a.course === currentForm.course).map(a => a.section)),
-      year:    unique(relevant.filter(a => !currentForm?.course || a.course === currentForm.course).map(a => a.year).filter(y => y && y !== '')),
-      sem:     unique(relevant.filter(a => !currentForm?.course || a.course === currentForm.course).map(a => a.sem).filter(s => s && s !== '')),
+      course:  unique(byStream.map(a => a.course)),
+      // sections is now an array — flatten all matching sections
+      section: byCourse.flatMap(a => a.sections?.length > 0 ? a.sections : ALL_SECTIONS).filter((v,i,arr) => arr.indexOf(v) === i),
+      year:    unique(byCourse.map(a => a.year).filter(y => y && y !== '')),
+      sem:     unique(byCourse.map(a => a.sem).filter(s => s && s !== '')),
     }[key] || []
   }
 

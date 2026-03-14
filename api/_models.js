@@ -9,11 +9,11 @@ const userSchema = new mongoose.Schema({
   role:     { type: String, enum: ['superadmin','trainer','cotrainer'], default: 'cotrainer' },
   // Multiple section assignments — each has stream + course + section
   assignedSections: [{
-stream:  { type: String, default: '' },
-course:  { type: String, default: '' },
-section: { type: String, default: '' },
-    year:    { type: String, default: '' },
-    sem:     { type: String, default: '' },
+    stream:   { type: String, default: '' },
+    course:   { type: String, default: '' },
+    sections: [{ type: String }],   // multiple sections e.g. ['Sec A', 'Sec B']
+    year:     { type: String, default: '' },
+    sem:      { type: String, default: '' },
   }],
   // Legacy single-assignment fields kept for backward compatibility
   assignedStream:  { type: String, default: null },
@@ -38,7 +38,8 @@ userSchema.methods.canManageStudent = function(s) {
   // Check new multi-section array first
   if (this.assignedSections && this.assignedSections.length > 0) {
     return this.assignedSections.some(a =>
-      a.stream === s.stream && a.course === s.course && a.section === s.section &&
+      a.stream === s.stream && a.course === s.course &&
+      (a.sections?.includes(s.section) || a.sections?.length === 0) &&
       (!a.year || a.year === s.year) && (!a.sem || a.sem === s.sem)
     );
   }
