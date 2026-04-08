@@ -3,7 +3,7 @@ import { connectDB }     from './_db.js'
 import { SectionCycle, Student } from './_models.js'
 import {
   Document, Packer, Paragraph, Table, TableRow, TableCell,
-  TextRun, AlignmentType, WidthType,
+  TextRun, AlignmentType, WidthType, BorderStyle,
   PageBreak, Footer,
 } from 'docx'
 
@@ -68,7 +68,6 @@ async function buildSectionChildren(report, index) {
   const prefix = index > 0 ? [pageBreak()] : []
   c.push(...prefix)
 
-  // Cover / section header
   c.push(
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 600, after: 300 }, children: [new TextRun({ text: 'SHEAT College of Engineering', font: FONT, size: 36, bold: true, color: BRAND_BLUE })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'Department of Computer Science & Engineering', font: FONT, size: 26 })] }),
@@ -82,7 +81,6 @@ async function buildSectionChildren(report, index) {
     pageBreak(),
   )
 
-  // 1. Cycle Overview
   c.push(heading('1. Cycle Overview'))
   c.push(infoTable([
     ['Cycle',             report.cycle],
@@ -100,7 +98,6 @@ async function buildSectionChildren(report, index) {
     pageBreak(),
   )
 
-  // 2. Class-wise Progress
   c.push(heading('2. Class-wise Progress'))
   c.push(para('Topics Covered:', { bold: true }))
   if (report.topicsCovered?.length) report.topicsCovered.forEach(t => c.push(bullet(t)))
@@ -111,7 +108,6 @@ async function buildSectionChildren(report, index) {
     pageBreak(),
   )
 
-  // 3. Attendance Analysis
   c.push(heading('3. Attendance Analysis'))
   c.push(infoTable([
     ['Total Students',       report.attendance?.totalStudents ?? '—'],
@@ -123,12 +119,10 @@ async function buildSectionChildren(report, index) {
     pageBreak(),
   )
 
-  // 4. Trainer Observations
   c.push(heading('4. Trainer Observations'))
   c.push(para(`Engagement Level: ${report.engagementLevel || '—'}`, { bold: true }))
   c.push(para(report.challenges || 'No specific observations recorded.'), pageBreak())
 
-  // 5. Challenges Faced
   c.push(heading('5. Challenges Faced'))
   c.push(para('Operational Challenges:', { bold: true }))
   if (report.operationalChallenges) {
@@ -144,11 +138,9 @@ async function buildSectionChildren(report, index) {
   }
   c.push(pageBreak())
 
-  // 6. Key Achievements
   c.push(heading('6. Key Achievements'))
   c.push(para(report.achievements || 'No achievements recorded.'), pageBreak())
 
-  // 7. Score Distribution
   c.push(heading('7. Score Distribution'))
   c.push(infoTable([
     ['Average Marks', report.avgMarks != null ? `${report.avgMarks} / 100` : '—'],
@@ -175,7 +167,6 @@ async function buildSectionChildren(report, index) {
   }))
   c.push(pageBreak())
 
-  // 8. Top 3 Leaderboard
   c.push(heading('8. Top 3 Leaderboard'))
   if (toppers.length) {
     c.push(new Table({
@@ -202,13 +193,11 @@ async function buildSectionChildren(report, index) {
   }
   c.push(pageBreak())
 
-  // 9. Recommendations
   c.push(heading('9. Recommendations'))
   if (report.recommendations?.length) report.recommendations.forEach(r => c.push(bullet(r)))
   else c.push(para('No recommendations recorded.'))
   c.push(pageBreak())
 
-  // 10. Overall Conclusion
   c.push(heading('10. Overall Conclusion'))
   const summaryParas = (report.summary || '').split('\n').filter(Boolean)
   if (summaryParas.length) {
@@ -244,9 +233,8 @@ async function generateSingleDocx(report) {
   return Packer.toBuffer(doc)
 }
 
-// ── Generate combined report DOCX (all sections for a cycle) ───────
+// ── Generate combined report DOCX ──────────────────────────────────
 async function generateCombinedDocx(reports, cycle) {
-  // Cover page for the combined report
   const coverChildren = [
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 1200, after: 300 }, children: [new TextRun({ text: 'SHEAT College of Engineering', font: FONT, size: 40, bold: true, color: BRAND_BLUE })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'Department of Computer Science & Engineering', font: FONT, size: 28 })] }),
@@ -256,7 +244,6 @@ async function generateCombinedDocx(reports, cycle) {
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `Total Sections: ${reports.length}`, font: FONT, size: 24 })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `Report Date: ${fmt(new Date())}`, font: FONT, size: 22 })] }),
     new Paragraph({ spacing: { after: 300 } }),
-    // Table of contents — list all sections
     infoTable([
       ['#', 'Section Details'],
       ...reports.map((r, i) => [
@@ -267,7 +254,6 @@ async function generateCombinedDocx(reports, cycle) {
     pageBreak(),
   ]
 
-  // Build each section's content
   const allSectionChildren = []
   for (let i = 0; i < reports.length; i++) {
     const sectionChildren = await buildSectionChildren(reports[i], i)
@@ -291,6 +277,221 @@ async function generateCombinedDocx(reports, cycle) {
   return Packer.toBuffer(doc)
 }
 
+// ── NEW: Generate executive summary DOCX (1-2 pages) ───────────────
+async function generateExecutiveSummary(reports, cycle) {
+  // Pull top student per section
+  const sectionData = await Promise.all(reports.map(async r => {
+    const toppers = await Student.find({
+      stream: r.stream, course: r.course,
+      year: r.year, sem: r.sem,
+      section: r.section, cycle: r.cycle,
+    }).sort({ rank: 1 }).limit(1)
+    return { report: r, rank1: toppers[0] || null }
+  }))
+
+  const border = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' }
+  const borders = { top: border, bottom: border, left: border, right: border }
+  const PAGE_WIDTH = 9026 // A4 with 1 inch margins in DXA
+
+  const children = []
+
+  // ── Header ─────────────────────────────────────────────────────
+  children.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 160 },
+      children: [new TextRun({ text: 'SHEAT College of Engineering', font: FONT, size: 32, bold: true, color: BRAND_BLUE })]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 100 },
+      children: [new TextRun({ text: 'Skill Lab Program — Executive Summary', font: FONT, size: 26, bold: true })]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 80 },
+      children: [new TextRun({ text: `${cycle}   |   Date: ${fmt(new Date())}   |   Total Sections: ${reports.length}`, font: FONT, size: 20, color: '666666' })]
+    }),
+    new Paragraph({
+      spacing: { before: 160, after: 240 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: BRAND_BLUE, space: 1 } },
+      children: [new TextRun('')]
+    }),
+  )
+
+  // ── Section-wise performance table ─────────────────────────────
+  children.push(
+    new Paragraph({
+      spacing: { before: 0, after: 160 },
+      children: [new TextRun({ text: 'Section-wise Performance Overview', font: FONT, size: 24, bold: true, color: BRAND_BLUE })]
+    })
+  )
+
+  const colW = [
+    Math.round(PAGE_WIDTH * 0.12), // Section
+    Math.round(PAGE_WIDTH * 0.20), // Stream / Course
+    Math.round(PAGE_WIDTH * 0.16), // Trainer
+    Math.round(PAGE_WIDTH * 0.09), // Students
+    Math.round(PAGE_WIDTH * 0.09), // Attend %
+    Math.round(PAGE_WIDTH * 0.09), // Avg Marks
+    Math.round(PAGE_WIDTH * 0.12), // Engagement
+    Math.round(PAGE_WIDTH * 0.13), // Rank 1 Name
+  ]
+
+  children.push(new Table({
+    width: { size: PAGE_WIDTH, type: WidthType.DXA },
+    columnWidths: colW,
+    rows: [
+      // Header row
+      new TableRow({
+        tableHeader: true,
+        children: ['Section', 'Stream / Course', 'Trainer', 'Students', 'Attend%', 'Avg Marks', 'Engagement', 'Rank 1'].map((h, i) =>
+          new TableCell({
+            width: { size: colW[i], type: WidthType.DXA },
+            shading: { fill: BRAND_BLUE },
+            margins: { top: 80, bottom: 80, left: 80, right: 80 },
+            children: [new Paragraph({ children: [new TextRun({ text: h, font: FONT, bold: true, size: 16, color: 'FFFFFF' })] })]
+          })
+        )
+      }),
+      // Data rows
+      ...sectionData.map(({ report: r, rank1 }) =>
+        new TableRow({
+          children: [
+            r.section,
+            `${r.stream} / ${r.course}`,
+            r.trainer?.name || '—',
+            r.attendance?.totalStudents != null ? String(r.attendance.totalStudents) : '—',
+            r.attendance?.avgPercent    != null ? `${r.attendance.avgPercent}%`       : '—',
+            r.avgMarks != null                  ? `${r.avgMarks}/100`                 : '—',
+            r.engagementLevel || '—',
+            rank1?.name || '—',
+          ].map((v, i) =>
+            new TableCell({
+              width: { size: colW[i], type: WidthType.DXA },
+              borders,
+              margins: { top: 70, bottom: 70, left: 80, right: 80 },
+              children: [new Paragraph({ children: [new TextRun({ text: String(v), font: FONT, size: 17 })] })]
+            })
+          )
+        })
+      )
+    ]
+  }))
+
+  // ── Score distribution table ────────────────────────────────────
+  children.push(
+    new Paragraph({
+      spacing: { before: 280, after: 160 },
+      children: [new TextRun({ text: 'Score Distribution', font: FONT, size: 24, bold: true, color: BRAND_BLUE })]
+    })
+  )
+
+  const scoreColW = [
+    Math.round(PAGE_WIDTH * 0.18),
+    Math.round(PAGE_WIDTH * 0.22),
+    Math.round(PAGE_WIDTH * 0.15),
+    Math.round(PAGE_WIDTH * 0.15),
+    Math.round(PAGE_WIDTH * 0.15),
+    Math.round(PAGE_WIDTH * 0.15),
+  ]
+
+  children.push(new Table({
+    width: { size: PAGE_WIDTH, type: WidthType.DXA },
+    columnWidths: scoreColW,
+    rows: [
+      new TableRow({
+        tableHeader: true,
+        children: ['Section', 'Stream / Course', 'Below 40', '40 – 70', 'Above 70', 'Avg Marks'].map((h, i) =>
+          new TableCell({
+            width: { size: scoreColW[i], type: WidthType.DXA },
+            shading: { fill: BRAND_BLUE },
+            margins: { top: 80, bottom: 80, left: 80, right: 80 },
+            children: [new Paragraph({ children: [new TextRun({ text: h, font: FONT, bold: true, size: 16, color: 'FFFFFF' })] })]
+          })
+        )
+      }),
+      ...reports.map(r => new TableRow({
+        children: [
+          r.section,
+          `${r.course} · ${r.year}`,
+          r.marks?.below40 != null ? String(r.marks.below40) : '—',
+          r.marks?.mid     != null ? String(r.marks.mid)     : '—',
+          r.marks?.above70 != null ? String(r.marks.above70) : '—',
+          r.avgMarks       != null ? `${r.avgMarks}/100`      : '—',
+        ].map((v, i) => new TableCell({
+          width: { size: scoreColW[i], type: WidthType.DXA },
+          borders,
+          margins: { top: 70, bottom: 70, left: 80, right: 80 },
+          children: [new Paragraph({ children: [new TextRun({ text: v, font: FONT, size: 17 })] })]
+        }))
+      }))
+    ]
+  }))
+
+  // ── Key highlights (max 4 bullets total) ───────────────────────
+  const allAchievements = reports.map(r => r.achievements).filter(Boolean)
+  if (allAchievements.length) {
+    children.push(
+      new Paragraph({ spacing: { before: 280, after: 120 }, children: [new TextRun({ text: 'Key Highlights', font: FONT, size: 24, bold: true, color: BRAND_BLUE })] })
+    )
+    allAchievements.flatMap(a => a.split('\n').filter(Boolean)).slice(0, 4).forEach(line =>
+      children.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 80 }, children: [new TextRun({ text: line, font: FONT, size: 20 })] }))
+    )
+  }
+
+  // ── Challenges (max 4 bullets total) ───────────────────────────
+  const allChallenges = reports.flatMap(r => [r.challenges, r.operationalChallenges]).filter(Boolean)
+  if (allChallenges.length) {
+    children.push(
+      new Paragraph({ spacing: { before: 240, after: 120 }, children: [new TextRun({ text: 'Challenges & Areas for Improvement', font: FONT, size: 24, bold: true, color: BRAND_BLUE })] })
+    )
+    allChallenges.flatMap(c => c.split('\n').filter(Boolean)).slice(0, 4).forEach(line =>
+      children.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 80 }, children: [new TextRun({ text: line, font: FONT, size: 20 })] }))
+    )
+  }
+
+  // ── Recommendations (max 4, deduplicated) ──────────────────────
+  const allRecs = [...new Set(reports.flatMap(r => r.recommendations || []).filter(Boolean))].slice(0, 4)
+  if (allRecs.length) {
+    children.push(
+      new Paragraph({ spacing: { before: 240, after: 120 }, children: [new TextRun({ text: 'Recommendations', font: FONT, size: 24, bold: true, color: BRAND_BLUE })] })
+    )
+    allRecs.forEach(rec =>
+      children.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 80 }, children: [new TextRun({ text: rec, font: FONT, size: 20 })] }))
+    )
+  }
+
+  // ── Closing line ───────────────────────────────────────────────
+  children.push(
+    new Paragraph({
+      spacing: { before: 280, after: 0 },
+      border: { top: { style: BorderStyle.SINGLE, size: 4, color: BRAND_BLUE, space: 1 } },
+      children: [new TextRun('')]
+    }),
+    new Paragraph({
+      spacing: { before: 140, after: 0 },
+      children: [new TextRun({ text: `This summary covers ${reports.length} section(s) for ${cycle}. Detailed section-wise reports are available separately. The Skill Lab Program continues to build industry-relevant skills across all streams.`, font: FONT, size: 18, italics: true, color: '777777' })]
+    })
+  )
+
+  const doc = new Document({
+    sections: [{
+      properties: { page: { size: { width: 11906, height: 16838 } } },
+      footers: {
+        default: new Footer({
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: `SHEAT SkillLab · ${cycle} · Executive Summary · Confidential`, font: FONT, size: 16, color: '888888' })],
+          })],
+        }),
+      },
+      children,
+    }],
+  })
+  return Packer.toBuffer(doc)
+}
+
 // ── Main handler ───────────────────────────────────────────────────
 export default async function handler(req, res) {
   cors(res)
@@ -306,8 +507,23 @@ export default async function handler(req, res) {
   // ── Routes without :id ─────────────────────────────────────────
   if (!req.query.id) {
 
-    // GET /api/reports — list
     if (req.method === 'GET') {
+
+      // Executive summary: /api/reports?executive=1&cycle=Cycle+3
+      if (req.query.executive === '1') {
+        if (user.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin only' })
+        const { cycle } = req.query
+        if (!cycle) return res.status(400).json({ error: 'cycle required' })
+        const reports = await SectionCycle.find({ cycle, status: { $in: ['submitted', 'locked'] } })
+          .populate('trainer', 'name')
+          .sort({ stream: 1, course: 1, section: 1 })
+        if (reports.length === 0) return res.status(404).json({ error: 'No submitted reports found for this cycle' })
+        const buffer   = await generateExecutiveSummary(reports, cycle)
+        const filename = `SkillLab_${cycle}_Executive_Summary.docx`.replace(/\s+/g, '_')
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+        return res.send(buffer)
+      }
 
       // Combined download: /api/reports?combined=1&cycle=Cycle+3
       if (req.query.combined === '1') {
@@ -325,6 +541,7 @@ export default async function handler(req, res) {
         return res.send(buffer)
       }
 
+      // List reports
       let query = {}
       if (user.role === 'superadmin') {
         const { stream, course, cycle, status } = req.query
@@ -391,7 +608,6 @@ export default async function handler(req, res) {
     .populate('lockedBy', 'name')
   if (!report) return res.status(404).json({ error: 'Report not found' })
 
-  // GET /api/reports/:id/download — single report
   if (req.method === 'GET' && isDownload) {
     if (user.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin only' })
     const buffer   = await generateSingleDocx(report)
@@ -401,20 +617,17 @@ export default async function handler(req, res) {
     return res.send(buffer)
   }
 
-  // GET /api/reports/:id
   if (req.method === 'GET') {
     if (user.role !== 'superadmin' && String(report.trainer._id) !== String(user._id))
       return res.status(403).json({ error: 'Forbidden' })
     return res.status(200).json(report)
   }
 
-  // PATCH /api/reports/:id — trainer can edit draft OR submitted (not locked)
   if (req.method === 'PATCH' && !isSubmit && !isLock) {
     if (report.status === 'locked')
       return res.status(403).json({ error: 'Report is locked by superadmin' })
     if (user.role !== 'superadmin' && String(report.trainer._id) !== String(user._id))
       return res.status(403).json({ error: 'Forbidden' })
-
     const allowed = [
       'coTrainerName','startDate','endDate','projectConducted',
       'attendance','marks','avgMarks',
@@ -429,7 +642,6 @@ export default async function handler(req, res) {
     return res.status(200).json(updated)
   }
 
-  // POST /api/reports/:id/submit
   if (req.method === 'POST' && isSubmit) {
     if (report.status === 'locked')
       return res.status(403).json({ error: 'Report is locked' })
@@ -441,7 +653,6 @@ export default async function handler(req, res) {
     return res.status(200).json(report)
   }
 
-  // POST /api/reports/:id/lock
   if (req.method === 'POST' && isLock) {
     if (user.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin only' })
     if (report.status === 'locked') return res.status(400).json({ error: 'Already locked' })

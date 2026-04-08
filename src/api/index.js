@@ -48,5 +48,6 @@ export const reportsAPI = {
   // Download DOCX
   download:         (id)    => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
   combinedDownload: (cycle) => api.get(`/reports?combined=1&cycle=${encodeURIComponent(cycle)}`, { responseType: 'blob' }),
+  executiveSummary: (cycle) => api.get(`/reports?executive=1&cycle=${encodeURIComponent(cycle)}`, { responseType: 'blob' }),
 }
 export default api

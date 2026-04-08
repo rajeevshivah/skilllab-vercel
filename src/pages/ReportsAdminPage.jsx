@@ -26,12 +26,12 @@ export default function ReportsAdminPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter]   = useState({ status: '', cycle: '' })
   const [cycles, setCycles]   = useState([])
-  const [busy, setBusy]       = useState({})  // id → true while action in progress
+  const [busy, setBusy]       = useState({})
 
   useEffect(() => {
-    fetch('/api/config?type=cycle')
+    fetch('/api/config')
       .then(r => r.json())
-      .then(d => setCycles((d || []).filter(c => c.isActive).map(c => c.value)))
+      .then(d => setCycles((d.config?.cycle || []).map(c => c.value)))
       .catch(() => {})
   }, [])
 
@@ -67,7 +67,7 @@ export default function ReportsAdminPage() {
       const url = URL.createObjectURL(new Blob([res.data]))
       const a   = document.createElement('a')
       a.href    = url
-      a.download = `SkillLab_${r.cycle}_${r.section}_Report.docx`.replace(/\s+/g,'_')
+      a.download = `SkillLab_${r.cycle}_${r.section}_Report.docx`.replace(/\s+/g, '_')
       a.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -75,20 +75,35 @@ export default function ReportsAdminPage() {
     } finally { setBusy(b => ({ ...b, [r._id]: false })) }
   }
 
-async function handleCombinedDownload(cycle) {
-  setBusy(b => ({ ...b, combined: true }))
-  try {
-    const res = await reportsAPI.combinedDownload(cycle)
-    const url = URL.createObjectURL(new Blob([res.data]))
-    const a   = document.createElement('a')
-    a.href    = url
-    a.download = `SkillLab_${cycle}_Combined_Report.docx`.replace(/\s+/g, '_')
-    a.click()
-    URL.revokeObjectURL(url)
-  } catch {
-    alert('Combined download failed. Make sure at least one report is submitted for this cycle.')
-  } finally { setBusy(b => ({ ...b, combined: false })) }
-}
+  async function handleCombinedDownload(cycle) {
+    setBusy(b => ({ ...b, combined: true }))
+    try {
+      const res = await reportsAPI.combinedDownload(cycle)
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a   = document.createElement('a')
+      a.href    = url
+      a.download = `SkillLab_${cycle}_Combined_Report.docx`.replace(/\s+/g, '_')
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Combined download failed. Make sure at least one report is submitted for this cycle.')
+    } finally { setBusy(b => ({ ...b, combined: false })) }
+  }
+
+  async function handleExecutiveSummary(cycle) {
+    setBusy(b => ({ ...b, executive: true }))
+    try {
+      const res = await reportsAPI.executiveSummary(cycle)
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a   = document.createElement('a')
+      a.href    = url
+      a.download = `SkillLab_${cycle}_Executive_Summary.docx`.replace(/\s+/g, '_')
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Executive summary failed. Make sure at least one report is submitted for this cycle.')
+    } finally { setBusy(b => ({ ...b, executive: false })) }
+  }
 
   return (
     <div style={S.page}>
@@ -106,14 +121,28 @@ async function handleCombinedDownload(cycle) {
           <option value="">All cycles</option>
           {cycles.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-      <button style={{ ...S.btnDl, border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }} onClick={load}>↻ Refresh</button>
-{filter.cycle && (
-  <button style={{ ...S.btnDl, background: 'rgba(26,60,94,0.3)', border: '1px solid #1A3C5E' }}
-    onClick={() => handleCombinedDownload(filter.cycle)}
-    disabled={!!busy['combined']}>
-    {busy['combined'] ? 'Generating…' : `⬇ Combined DOCX — ${filter.cycle}`}
-  </button>
-)}</div>
+        <button
+          style={{ ...S.btnDl, border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}
+          onClick={load}>
+          ↻ Refresh
+        </button>
+        {filter.cycle && (
+          <button
+            style={{ ...S.btnDl, background: 'rgba(26,60,94,0.3)', border: '1px solid #1A3C5E', ...(busy['combined'] ? { opacity: 0.5 } : {}) }}
+            onClick={() => handleCombinedDownload(filter.cycle)}
+            disabled={!!busy['combined']}>
+            {busy['combined'] ? 'Generating…' : `⬇ Combined DOCX — ${filter.cycle}`}
+          </button>
+        )}
+        {filter.cycle && (
+          <button
+            style={{ ...S.btnDl, background: 'rgba(39,174,96,0.1)', border: '1px solid #27ae60', color: '#2ecc71', ...(busy['executive'] ? { opacity: 0.5 } : {}) }}
+            onClick={() => handleExecutiveSummary(filter.cycle)}
+            disabled={!!busy['executive']}>
+            {busy['executive'] ? 'Generating…' : `📄 Executive Summary — ${filter.cycle}`}
+          </button>
+        )}
+      </div>
 
       {loading
         ? <div style={S.empty}>Loading…</div>
@@ -123,7 +152,7 @@ async function handleCombinedDownload(cycle) {
             <table style={S.table}>
               <thead>
                 <tr>
-                  {['Trainer','Section','Stream / Course','Cycle','Status','Updated','Actions'].map(h =>
+                  {['Trainer', 'Section', 'Stream / Course', 'Cycle', 'Status', 'Updated', 'Actions'].map(h =>
                     <th key={h} style={S.th}>{h}</th>
                   )}
                 </tr>
@@ -133,20 +162,27 @@ async function handleCombinedDownload(cycle) {
                   <tr key={r._id}>
                     <td style={S.td}>{r.trainer?.name || '—'}</td>
                     <td style={S.td}>{r.section}</td>
-                    <td style={S.td} >{r.stream}<br/><span style={{fontSize:11,opacity:0.5}}>{r.course} · {r.year}</span></td>
+                    <td style={S.td}>
+                      {r.stream}<br />
+                      <span style={{ fontSize: 11, opacity: 0.5 }}>{r.course} · {r.year}</span>
+                    </td>
                     <td style={S.td}>{r.cycle}</td>
                     <td style={S.td}><span style={S.badge(r.status)}>{r.status}</span></td>
-                    <td style={S.td} >{new Date(r.updatedAt).toLocaleDateString('en-IN')}</td>
+                    <td style={S.td}>{new Date(r.updatedAt).toLocaleDateString('en-IN')}</td>
                     <td style={S.td}>
-                      <div style={{ display:'flex', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8 }}>
                         {r.status === 'submitted' && (
-                          <button style={{ ...S.btnLock, ...(busy[r._id] ? { opacity:0.5 } : {}) }}
-                            onClick={() => handleLock(r._id)} disabled={busy[r._id]}>
+                          <button
+                            style={{ ...S.btnLock, ...(busy[r._id] ? { opacity: 0.5 } : {}) }}
+                            onClick={() => handleLock(r._id)}
+                            disabled={busy[r._id]}>
                             🔒 Lock
                           </button>
                         )}
-                        <button style={{ ...S.btnDl, ...(busy[r._id] ? { opacity:0.5 } : {}) }}
-                          onClick={() => handleDownload(r)} disabled={busy[r._id]}>
+                        <button
+                          style={{ ...S.btnDl, ...(busy[r._id] ? { opacity: 0.5 } : {}) }}
+                          onClick={() => handleDownload(r)}
+                          disabled={busy[r._id]}>
                           ⬇ DOCX
                         </button>
                       </div>
