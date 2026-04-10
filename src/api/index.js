@@ -23,6 +23,7 @@ export const authAPI = {
   updateUser: (id, d) => api.patch(`/auth/users/${id}`, d),
   deleteUser: (id)    => api.delete(`/auth/users/${id}`),
 }
+
 export const studentsAPI = {
   list:      (p)      => api.get('/students', { params: p }),
   getPhoto:  (id)     => api.get(`/students/${id}`, { params: { photo: 1 } }),
@@ -33,21 +34,16 @@ export const studentsAPI = {
 }
 
 export const reportsAPI = {
-  // Trainer: get my reports, or superadmin: get all
-  list:     (p)      => api.get('/reports', { params: p }),
-  // Get one report by id
-  get:      (id)     => api.get(`/reports/${id}`),
-  // Create or update draft (upsert by section+cycle identity)
-  save:     (d)      => api.post('/reports', d),
-  // Update an existing draft
-  update:   (id, d)  => api.patch(`/reports/${id}`, d),
-  // Trainer submits
-  submit:   (id)     => api.post(`/reports/${id}/submit`),
-  // Superadmin locks
-  lock:     (id)     => api.post(`/reports/${id}/lock`),
-  // Download DOCX
-  download:         (id)    => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
-  combinedDownload: (cycle) => api.get(`/reports?combined=1&cycle=${encodeURIComponent(cycle)}`, { responseType: 'blob' }),
-  executiveSummary: (cycle) => api.get(`/reports?executive=1&cycle=${encodeURIComponent(cycle)}`, { responseType: 'blob' }),
+  list:               (p)                      => api.get('/reports', { params: p }),
+  get:                (id)                     => api.get(`/reports/${id}`),
+  save:               (d)                      => api.post('/reports', d),
+  update:             (id, d)                  => api.patch(`/reports/${id}`, d),
+  submit:             (id)                     => api.post(`/reports/${id}/submit`),
+  lock:               (id)                     => api.post(`/reports/${id}/lock`),
+  download:           (id)                     => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
+  combinedDownload:   (cycle)                  => api.get(`/reports?combined=1&cycle=${encodeURIComponent(cycle)}`, { responseType: 'blob' }),
+  executiveSummary:   (cycle)                  => api.get(`/reports?executive=1&cycle=${encodeURIComponent(cycle)}`, { responseType: 'blob' }),
+  consolidatedReport: (reportIds, reportingPeriod) => api.post('/reports?consolidated=1', { reportIds, reportingPeriod }, { responseType: 'blob' }),
 }
+
 export default api
