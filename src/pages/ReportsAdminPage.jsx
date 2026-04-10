@@ -301,7 +301,8 @@ export default function ReportsAdminPage() {
                 {candidateReports.map(r => (
                   <div key={r._id} style={{ ...S.checkRow, background: selectedIds.includes(r._id) ? 'rgba(26,60,94,0.3)' : 'rgba(255,255,255,0.03)' }}
                     onClick={() => toggleId(r._id)}>
-                    <input type="checkbox" checked={selectedIds.includes(r._id)} onChange={() => toggleId(r._id)}
+                    <input type="checkbox" checked={selectedIds.includes(r._id)} onChange={() => {}}
+                      onClick={e => e.stopPropagation()}
                       style={{ width: 16, height: 16, cursor: 'pointer' }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>

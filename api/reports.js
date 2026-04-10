@@ -469,7 +469,7 @@ const statsColW = Math.round(PAGE_WIDTH / 4)
         const total = (r.marks?.below40 ?? 0) + (r.marks?.mid ?? 0) + (r.marks?.above70 ?? 0)
         const above70pct = total > 0 ? Math.round((above70count / total) * 100) : 0
         return new TableRow({ children: [
-          `${r.section} — ${r.stream}`,
+          `${r.section} — ${r.course} ${r.year}`,
           `${r.year} / ${r.sem}`,
           r.trainer?.name || '—',
           r.attendance?.avgPercent != null ? `${r.attendance.avgPercent}%` : 'N/R',
@@ -531,14 +531,15 @@ const statsColW = Math.round(PAGE_WIDTH / 4)
     const endDate = streamReps.map(({ report: r }) => r.endDate).filter(Boolean).sort().reverse()[0]
 
     children.push(sectionHeading(`Section ${streamIndex}: ${stream}`))
-    children.push(new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: `${streamReps.map(({ report: r }) => `${r.course} ${r.year}`).join(' & ')}`, font: FONT, size: 22 })] }))
+   const streamSubtitle = [...new Set(streamReps.map(({ report: r }) => `${r.course} ${r.year}`))].join(' & ')
+    children.push(new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: streamSubtitle, font: FONT, size: 22 })] }))
     children.push(new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `Trainer: ${trainerName}${coTrainer !== '—' ? ` | Co-Trainer: ${coTrainer}` : ''} | Period: ${fmt(startDate)} – ${fmt(endDate)}`, font: FONT, size: 20, color: '555555' })] }))
 
     // Overview paragraph
     const streamTopics = [...new Set(streamReps.flatMap(({ report: r }) => r.topicsCovered || []))].slice(0, 5).join(', ')
     children.push(new Paragraph({ spacing: { before: 0, after: 120 }, children: [new TextRun({ text: 'Overview', font: FONT, size: 20, bold: true })] }))
-    children.push(para(`The ${stream} stream covers ${streamReps.map(({ report: r }) => `${r.course} ${r.year} Section ${r.section}`).join(' and ')}. Topics covered this cycle include: ${streamTopics || 'various practical topics'}. ${streamReps[0]?.report?.projectConducted ? 'A project was conducted this cycle.' : 'No project was conducted this cycle.'}`))
-
+const uniqueSections = [...new Map(streamReps.map(({ report: r }) => [`${r.course}-${r.year}-${r.section}`, `${r.course} ${r.year} Section ${r.section}`])).values()]
+    children.push(para(`The ${stream} stream covers ${uniqueSections.join(' and ')}. Topics covered this cycle include: ${streamTopics || 'various practical topics'}. ${streamReps[0]?.report?.projectConducted ? 'A project was conducted this cycle.' : 'No project was conducted this cycle.'}`))
     // Section-wise comparison table
     if (streamReps.length > 0) {
       children.push(new Paragraph({ spacing: { before: 200, after: 120 }, children: [new TextRun({ text: 'Section-wise Summary', font: FONT, size: 20, bold: true })] }))
