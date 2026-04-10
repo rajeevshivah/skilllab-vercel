@@ -410,28 +410,27 @@ async function generateConsolidatedDocx(reports, reportingPeriod) {
   )
 
   // Stats boxes row
-  const statsColW = Math.round(PAGE_WIDTH / 4)
+const statsColW = Math.round(PAGE_WIDTH / 4)
+  const statsData = [
+    [String(reports.length), 'Sections Covered'],
+    [String(streams.length), 'Skill Lab Streams'],
+    [String(trainerNames.length), 'Trainers Reporting'],
+    [String(totalToppers), 'Top Performers'],
+  ]
+  const statsCells = statsData.map(([num, label]) => new TableCell({
+    shading: { fill: BRAND_BLUE },
+    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.SINGLE, size: 2, color: '2D5A8E' }, right: { style: BorderStyle.SINGLE, size: 2, color: '2D5A8E' } },
+    margins: { top: 200, bottom: 200, left: 100, right: 100 },
+    width: { size: statsColW, type: WidthType.DXA },
+    children: [
+      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: num, font: FONT, size: 48, bold: true, color: 'FFFFFF' })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: label, font: FONT, size: 18, color: 'BFD9F2' })] }),
+    ]
+  }))
   children.push(new Table({
     width: { size: PAGE_WIDTH, type: WidthType.DXA },
     columnWidths: [statsColW, statsColW, statsColW, statsColW],
-    rows: [
-      new TableRow({ children: [
-        [String(reports.length), 'Sections Covered'],
-        [String(streams.length), 'Skill Lab Streams'],
-        [String(trainerNames.length), 'Trainers Reporting'],
-        [String(totalToppers), 'Top Performers'],
-      ].map(([num, label]) => new TableCell({
-        shading: { fill: BRAND_BLUE },
-        borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.SINGLE, size: 2, color: '2D5A8E' }, right: { style: BorderStyle.SINGLE, size: 2, color: '2D5A8E' } },
-        margins: { top: 200, bottom: 200, left: 100, right: 100 },
-        width: { size: statsColW, type: WidthType.DXA },
-        children: [
-          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: num, font: FONT, size: 48, bold: true, color: 'FFFFFF' })] }),
-          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: label, font: FONT, size: 18, color: 'BFD9F2' })] }),
-        ]
-      }))
-      ])
-    ]
+    rows: [new TableRow({ children: statsCells })]
   }))
 
   children.push(new Paragraph({ spacing: { after: 300 } }))
