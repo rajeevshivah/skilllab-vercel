@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { authAPI } from '../api'
+import api from '../api'
 
 const AuthCtx = createContext(null)
 
@@ -10,14 +10,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('sl_token')
     if (!token) { setLoading(false); return }
-    authAPI.me()
+    api.get('/auth/me')
       .then(r => { setUser(r.data.user); localStorage.setItem('sl_user', JSON.stringify(r.data.user)) })
       .catch(() => { localStorage.removeItem('sl_token'); localStorage.removeItem('sl_user'); setUser(null) })
       .finally(() => setLoading(false))
   }, [])
 
   const login = async (email, password) => {
-    const { data } = await authAPI.login( { email, password })
+    const { data } = await api.post('/auth/login', { email, password })
     localStorage.setItem('sl_token', data.token)
     localStorage.setItem('sl_user',  JSON.stringify(data.user))
     setUser(data.user)

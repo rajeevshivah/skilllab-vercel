@@ -1,208 +1,110 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { authAPI, studentsAPI } from '../api'
+import api from '../api'
 import { useAuth } from '../context/AuthContext'
-
-const STREAMS  = ['AI / ML','MERN Stack','Java & Backend Arch.','C Programming Foundation']
-const COURSES  = ['B.Tech','BCA']
-const SECTIONS = ['Sec A','Sec B','Sec C','F104','B.Tech','BCA']
-
-const iStyle = { width:'100%',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'9px 12px',borderRadius:8,fontSize:13,outline:'none' }
-const lStyle = { display:'block',fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--muted)',marginBottom:5 }
+import { ui, Alert, Empty } from '../components/ui'
 
 export default function UsersPage() {
-  const { isSuperAdmin } = useAuth()
-  const navigate = useNavigate()
-  const [users,   setUsers]   = useState([])
+  const { user } = useAuth()
+  const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [alert,   setAlert]   = useState(null)
-  const [saving,  setSaving]  = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [form, setForm] = useState({ name:'', email:'', password:'', role:'cotrainer', assignedStream:'AI / ML', assignedSection:'Sec A', assignedCourse:'B.Tech' })
+  const [alert, setAlert] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const blank = { name:'', email:'', password:'', role:'trainer' }
+  const [form, setForm] = useState(blank)
 
-  useEffect(() => { if (!isSuperAdmin) { navigate('/'); return } fetchUsers() }, [])
+  const show = (msg, type='success') => { setAlert({ msg, type }); setTimeout(()=>setAlert(null),3500) }
 
-  async function fetchUsers() {
-    try { const { data } = await authAPI.getUsers(); setUsers(data.users) }
-    catch (e) { showAlert('Failed to load users','error') }
+  useEffect(() => { load() }, [])
+  async function load() {
+    setLoading(true)
+    try { const { data } = await api.get('/auth/users'); setUsers(data.users) }
+    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
     finally { setLoading(false) }
   }
 
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
-
-  async function handleSave(e) {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      if (editingId) {
-        const { password, email, ...rest } = form
-        await authAPI.updateUser(editingId, rest)
-        showAlert('User updated!','success')
-      } else {
-        if (!form.password) { showAlert('Password required','error'); setSaving(false); return }
-        await authAPI.createUser( form)
-        showAlert('User created!','success')
-      }
-      clearForm(); fetchUsers()
-    } catch (err) { showAlert(err.response?.data?.message || 'Save failed','error') }
-    finally { setSaving(false) }
+  async function create() {
+    if (!form.name || !form.email || !form.password) return show('All fields required', 'error')
+    try { await api.post('/auth/create-user', form); show('User created.'); setForm(blank); setShowForm(false); load() }
+    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
-
-  function handleEdit(u) {
-    setEditingId(u._id)
-    setForm({ name:u.name, email:u.email, password:'', role:u.role,
-      assignedStream: u.assignedStream||'AI / ML',
-      assignedSection: u.assignedSection||'Sec A',
-      assignedCourse: u.assignedCourse||'B.Tech' })
-  }
-
-  async function handleDelete(id) {
-    if (!confirm('Delete this user?')) return
-    try { await authAPI.deleteUser(id); showAlert('Deleted','success'); fetchUsers() }
-    catch (err) { showAlert(err.response?.data?.message || 'Delete failed','error') }
-  }
-
   async function toggleActive(u) {
-    try {
-      await authAPI.updateUser(u._id, { isActive: !u.isActive })
-      showAlert(`User ${u.isActive ? 'deactivated' : 'activated'}`, 'success')
-      fetchUsers()
-    } catch { showAlert('Failed','error') }
+    try { await api.patch(`/auth/users/${u._id}`, { isActive: !u.isActive }); load() }
+    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
+  async function changeRole(u, role) {
+    try { await api.patch(`/auth/users/${u._id}`, { role }); load() }
+    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
+  async function remove(u) {
+    if (!confirm(`Delete ${u.name}?`)) return
+    try { await api.delete(`/auth/users/${u._id}`); show('Deleted.'); load() }
+    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
 
-  function clearForm() {
-    setEditingId(null)
-    setForm({ name:'', email:'', password:'', role:'cotrainer', assignedStream:'AI / ML', assignedSection:'Sec A', assignedCourse:'B.Tech' })
-  }
-
-  function showAlert(msg, type) { setAlert({ msg, type }); setTimeout(() => setAlert(null), 3500) }
-
-  const roleColor = { superadmin:'var(--gold)', trainer:'#86EFAC', cotrainer:'#93C5FD' }
+  if (user?.role !== 'superadmin') return <div style={{ ...ui.wrap, color:'var(--muted)' }}>Superadmin only.</div>
 
   return (
-    <div style={{maxWidth:800,margin:'0 auto',padding:'40px 24px'}}>
-      <div style={{marginBottom:32}}>
-        <h1 style={{fontFamily:'var(--font-d)',fontSize:28}}>👥 Manage Users</h1>
-        <p style={{fontSize:13,color:'var(--muted)',marginTop:4}}>Create trainer and co-trainer accounts, assign them to sections</p>
+    <div style={ui.wrap}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:14, flexWrap:'wrap', gap:10 }}>
+        <div><h1 style={ui.h1}>Trainers & Users</h1><p style={ui.sub}>Assign them to batches from the Batches page.</p></div>
+        <button style={ui.btnGold} onClick={()=>setShowForm(v=>!v)}>+ New user</button>
       </div>
+      <Alert alert={alert} />
 
-      {alert && (
-        <div style={{padding:'12px 16px',borderRadius:10,fontSize:13,marginBottom:16,
-          background:alert.type==='success'?'rgba(22,163,74,0.15)':'rgba(220,38,38,0.15)',
-          border:`1px solid ${alert.type==='success'?'rgba(22,163,74,0.3)':'rgba(220,38,38,0.3)'}`,
-          color:alert.type==='success'?'#86EFAC':'#FCA5A5'}}>{alert.msg}
+      {showForm && (
+        <div style={{ ...ui.card, marginBottom:18 }}>
+          <h2 style={ui.h2}>Create user</h2>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:12 }}>
+            <div><label style={ui.label}>Name</label><input style={ui.input} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} /></div>
+            <div><label style={ui.label}>Email</label><input style={ui.input} type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} /></div>
+            <div><label style={ui.label}>Password</label><input style={ui.input} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} /></div>
+            <div><label style={ui.label}>Role</label>
+              <select style={ui.input} value={form.role} onChange={e=>setForm({...form,role:e.target.value})}>
+                <option value="trainer">Trainer</option>
+                <option value="cotrainer">Co-trainer</option>
+                <option value="superadmin">Superadmin</option>
+              </select></div>
+          </div>
+          <div style={{ display:'flex', gap:10, marginTop:14 }}>
+            <button style={ui.btn} onClick={create}>Create</button>
+            <button style={ui.btnGhost} onClick={()=>setShowForm(false)}>Cancel</button>
+          </div>
         </div>
       )}
 
-      {/* Form */}
-      <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:16,padding:28,marginBottom:28}}>
-        <h3 style={{fontFamily:'var(--font-d)',fontSize:18,marginBottom:20,paddingBottom:12,borderBottom:'1px solid rgba(255,255,255,0.07)'}}>
-          {editingId ? '✏️ Edit User' : '➕ Create User'}
-        </h3>
-        <form onSubmit={handleSave}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
-            <div><label style={lStyle}>Full Name *</label><input style={iStyle} value={form.name} onChange={e=>set('name',e.target.value)} required placeholder="e.g. Mr. Lucky Sharma" /></div>
-            <div><label style={lStyle}>Email *</label><input style={iStyle} type="email" value={form.email} onChange={e=>set('email',e.target.value)} required={!editingId} disabled={!!editingId} placeholder="trainer@sheat.ac.in" /></div>
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
-            {!editingId && <div><label style={lStyle}>Password *</label><input style={iStyle} type="password" value={form.password} onChange={e=>set('password',e.target.value)} placeholder="Min 8 characters" /></div>}
-            <div><label style={lStyle}>Role *</label>
-              <select style={iStyle} value={form.role} onChange={e=>set('role',e.target.value)}>
-                <option value="cotrainer" style={{background:'#0A1628'}}>Co-Trainer (add/edit, no delete)</option>
-                <option value="trainer"   style={{background:'#0A1628'}}>Trainer (add/edit/delete)</option>
-                <option value="superadmin" style={{background:'#0A1628'}}>Super Admin (full access)</option>
-              </select>
+      {loading ? <div style={{ color:'var(--muted)' }}>Loading…</div>
+        : users.length === 0 ? <Empty icon="👥" title="No users yet" />
+        : (
+          <div style={{ ...ui.card, padding:0, overflow:'hidden' }}>
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:640 }}>
+                <thead><tr>
+                  <th style={ui.th}>Name</th><th style={ui.th}>Email</th><th style={ui.th}>Role</th>
+                  <th style={ui.th}>Status</th><th style={ui.th}></th>
+                </tr></thead>
+                <tbody>
+                  {users.map(u => (
+                    <tr key={u._id}>
+                      <td style={{ ...ui.td, fontWeight:600 }}>{u.name}</td>
+                      <td style={{ ...ui.td, color:'var(--muted)' }}>{u.email}</td>
+                      <td style={ui.td}>
+                        <select style={{ ...ui.input, width:'auto', padding:'5px 8px' }} value={u.role} onChange={e=>changeRole(u, e.target.value)} disabled={u._id===user.id}>
+                          <option value="trainer">Trainer</option>
+                          <option value="cotrainer">Co-trainer</option>
+                          <option value="superadmin">Superadmin</option>
+                        </select>
+                      </td>
+                      <td style={ui.td}>
+                        <button style={ui.btnGhost} onClick={()=>toggleActive(u)}>{u.isActive?'Active':'Inactive'}</button>
+                      </td>
+                      <td style={ui.td}>{u._id!==user.id && <button style={ui.btnDanger} onClick={()=>remove(u)}>Delete</button>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-
-          {form.role !== 'superadmin' && (
-            <>
-              <p style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
-                ⚠️ Assign this user to their section — they will only be able to manage students in this section.
-              </p>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,marginBottom:14}}>
-                <div><label style={lStyle}>Stream</label>
-                  <select style={iStyle} value={form.assignedStream} onChange={e=>set('assignedStream',e.target.value)}>
-                    {STREAMS.map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
-                  </select></div>
-                <div><label style={lStyle}>Course</label>
-                  <select style={iStyle} value={form.assignedCourse} onChange={e=>set('assignedCourse',e.target.value)}>
-                    {COURSES.map(c=><option key={c} value={c} style={{background:'#0A1628'}}>{c}</option>)}
-                  </select></div>
-                <div><label style={lStyle}>Section</label>
-                  <select style={iStyle} value={form.assignedSection} onChange={e=>set('assignedSection',e.target.value)}>
-                    {SECTIONS.map(s=><option key={s} value={s} style={{background:'#0A1628'}}>{s}</option>)}
-                  </select></div>
-              </div>
-            </>
-          )}
-
-          <div style={{display:'flex',gap:10}}>
-            <button type="submit" disabled={saving}
-              style={{padding:'11px 24px',background:'var(--blue)',color:'white',border:'none',borderRadius:10,fontSize:14,fontWeight:600,cursor:'pointer',opacity:saving?0.7:1}}>
-              {saving?'Saving…': editingId?'💾 Update User':'➕ Create User'}
-            </button>
-            {editingId && <button type="button" onClick={clearForm}
-              style={{padding:'11px 20px',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.7)',borderRadius:10,fontSize:14,cursor:'pointer'}}>Cancel</button>}
-          </div>
-        </form>
-      </div>
-
-      {/* Users Table */}
-      <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:16,padding:28}}>
-        <h3 style={{fontFamily:'var(--font-d)',fontSize:18,marginBottom:20,paddingBottom:12,borderBottom:'1px solid rgba(255,255,255,0.07)'}}>
-          All Users <span style={{fontSize:14,color:'var(--muted)',fontFamily:'var(--font-b)',fontWeight:400}}>({users.length})</span>
-        </h3>
-        {loading ? <p style={{color:'var(--muted)',fontSize:13}}>Loading…</p> : (
-          <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-              <thead>
-                <tr>{['Name / Email','Role','Assigned Section','Status','Actions'].map(h=>(
-                  <th key={h} style={{textAlign:'left',padding:'10px 12px',fontSize:10,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--muted)',borderBottom:'1px solid rgba(255,255,255,0.07)'}}>{h}</th>
-                ))}</tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u._id} style={{borderBottom:'1px solid rgba(255,255,255,0.04)',opacity:u.isActive?1:0.5}}>
-                    <td style={{padding:12}}>
-                      <div style={{fontWeight:600,color:'white'}}>{u.name}</div>
-                      <div style={{fontSize:11,color:'var(--muted)'}}>{u.email}</div>
-                    </td>
-                    <td style={{padding:12}}>
-                      <span style={{fontSize:11,fontWeight:600,padding:'3px 10px',borderRadius:999,background:'rgba(255,255,255,0.07)',color:roleColor[u.role]||'white',textTransform:'capitalize'}}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td style={{padding:12,fontSize:12,color:'var(--muted)'}}>
-                      {u.role === 'superadmin' ? <span style={{color:'var(--gold)'}}>All sections</span>
-                        : u.assignedStream ? `${u.assignedStream} · ${u.assignedCourse} · ${u.assignedSection}` : '—'}
-                    </td>
-                    <td style={{padding:12}}>
-                      <span style={{fontSize:11,fontWeight:600,padding:'3px 10px',borderRadius:999,
-                        background: u.isActive?'rgba(22,163,74,0.15)':'rgba(220,38,38,0.15)',
-                        color: u.isActive?'#86EFAC':'#FCA5A5'}}>
-                        {u.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td style={{padding:12}}>
-                      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                        <button onClick={()=>handleEdit(u)}
-                          style={{padding:'5px 10px',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.7)',borderRadius:6,fontSize:11,cursor:'pointer'}}>✏️</button>
-                        <button onClick={()=>toggleActive(u)}
-                          style={{padding:'5px 10px',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.7)',borderRadius:6,fontSize:11,cursor:'pointer'}}>
-                          {u.isActive?'🔒':'🔓'}
-                        </button>
-                        <button onClick={()=>handleDelete(u._id)}
-                          style={{padding:'5px 10px',background:'rgba(220,38,38,0.12)',border:'1px solid rgba(220,38,38,0.2)',color:'#FCA5A5',borderRadius:6,fontSize:11,cursor:'pointer'}}>🗑️</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         )}
-      </div>
     </div>
   )
 }
