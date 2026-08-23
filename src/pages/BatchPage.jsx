@@ -210,6 +210,13 @@ function RosterTab({ batchId, user, show, canEdit }) {
   const [paste, setPaste] = useState('')
   const [importing, setImporting] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [dupes, setDupes] = useState([])
+  const blankAdd = { roll:'', name:'', course:'', sem:'', section:'' }
+  const [addForm, setAddForm] = useState(blankAdd)
+
+  const TEMPLATE_HEADER = 'Roll, Name, Course, Semester, Section'
+  const TEMPLATE_SAMPLE = 'Roll, Name, Course, Semester, Section\nBCA2024001, Aman Kumar, BCA, 3rd, A\nBCA2024002, Priya Singh, BCA, 3rd, A'
 
   useEffect(() => { load() }, [])
   async function load() {
@@ -219,13 +226,30 @@ function RosterTab({ batchId, user, show, canEdit }) {
     finally { setLoading(false) }
   }
 
+  // Parse pasted rows. Accepts commas OR tabs. Columns in order:
+  // Roll, Name, Course, Semester, Section. A header line (starts with "roll") is skipped.
   function parseRows(text) {
-    // Each line: "roll, name" or "name" or tab/comma separated "roll<TAB>name"
-    return text.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
-      const parts = line.split(/[,\t]/).map(p => p.trim())
-      if (parts.length >= 2) return { roll: parts[0], name: parts.slice(1).join(' ') }
-      return { name: parts[0], roll: '' }
-    })
+    return text.split('\n').map(l => l.trim()).filter(Boolean)
+      .filter(line => !/^roll[\s,;\t]/i.test(line)) // skip header row if pasted
+      .map(line => {
+        const p = line.split(/[,\t;]/).map(x => x.trim())
+        // If only one column, treat it as the name.
+        if (p.length === 1) return { roll:'', name:p[0], course:'', sem:'', section:'' }
+        return { roll:p[0]||'', name:p[1]||'', course:p[2]||'', sem:p[3]||'', section:p[4]||'' }
+      })
+      .filter(r => r.name)
+  }
+
+  function copyFormat() {
+    navigator.clipboard?.writeText(TEMPLATE_HEADER)
+    show('Format copied — paste into Excel row 1 as column headers.')
+  }
+  function downloadTemplate() {
+    const blob = new Blob([TEMPLATE_SAMPLE], { type:'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'skilllab-student-template.csv'; a.click()
+    URL.revokeObjectURL(url)
   }
 
   async function doImport() {
@@ -234,9 +258,22 @@ function RosterTab({ batchId, user, show, canEdit }) {
     setImporting(true)
     try {
       const { data } = await api.post('/students/bulk', { batch: batchId, rows })
-      show(`Imported ${data.imported} students.`); setPaste(''); setShowImport(false); load()
+      setDupes(data.duplicates || [])
+      if (data.duplicateCount)
+        show(`Imported ${data.imported}. ${data.duplicateCount} student(s) also exist in another batch — flagged for admin.`)
+      else
+        show(`Imported ${data.imported} students.`)
+      setPaste(''); setShowImport(false); load()
     } catch (e) { show(e.response?.data?.message || 'Import failed', 'error') }
     finally { setImporting(false) }
+  }
+
+  async function addOne() {
+    if (!addForm.name.trim()) return show('Name required', 'error')
+    try {
+      await api.post('/students', { ...addForm, batch: batchId })
+      show(`Added ${addForm.name}.`); setAddForm(blankAdd); setShowAdd(false); load()
+    } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
 
   async function toggleFlag(s) {
@@ -253,21 +290,60 @@ function RosterTab({ batchId, user, show, canEdit }) {
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
         <p style={ui.sub}>{students.length} students</p>
-        {canEdit && <button style={ui.btnGold} onClick={()=>setShowImport(v=>!v)}>Bulk import</button>}
+        {canEdit && <div style={{ display:'flex', gap:8 }}>
+          <button style={ui.btnGhost} onClick={()=>{ setShowAdd(v=>!v); setShowImport(false) }}>+ Add student</button>
+          <button style={ui.btnGold} onClick={()=>{ setShowImport(v=>!v); setShowAdd(false) }}>Bulk import</button>
+        </div>}
       </div>
 
-      {showImport && (
+      {dupes.length > 0 && (
+        <div style={{ background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.35)', color:'var(--gold)', padding:'12px 14px', borderRadius:9, fontSize:13, marginBottom:16 }}>
+          <b>Possible track overlaps</b> — these students are also in another batch this semester:
+          <ul style={{ margin:'8px 0 0', paddingLeft:18 }}>
+            {dupes.map((d,i) => <li key={i}>{d.roll} · {d.name} — already in <b>{d.otherBatch}</b>{d.otherTrack?` (${d.otherTrack})`:''}</li>)}
+          </ul>
+          <div style={{ marginTop:6, fontSize:12 }}>Imported anyway. The admin can resolve overlaps from the Duplicates screen before the track lock.</div>
+        </div>
+      )}
+
+      {showAdd && canEdit && (
         <div style={{ ...ui.card, marginBottom:18 }}>
-          <h2 style={ui.h2}>Paste student list</h2>
-          <p style={{ ...ui.sub, marginBottom:10 }}>One student per line. Format: <code>roll, name</code> (or just name). Tabs or commas both work — paste straight from Excel.</p>
+          <h2 style={ui.h2}>Add one student</h2>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:10 }}>
+            <div><label style={ui.label}>Roll</label><input style={ui.input} value={addForm.roll} onChange={e=>setAddForm({...addForm,roll:e.target.value})} /></div>
+            <div><label style={ui.label}>Name *</label><input style={ui.input} value={addForm.name} onChange={e=>setAddForm({...addForm,name:e.target.value})} /></div>
+            <div><label style={ui.label}>Course</label><input style={ui.input} value={addForm.course} onChange={e=>setAddForm({...addForm,course:e.target.value})} placeholder="BCA" /></div>
+            <div><label style={ui.label}>Semester</label><input style={ui.input} value={addForm.sem} onChange={e=>setAddForm({...addForm,sem:e.target.value})} placeholder="3rd" /></div>
+            <div><label style={ui.label}>Section</label><input style={ui.input} value={addForm.section} onChange={e=>setAddForm({...addForm,section:e.target.value})} placeholder="A" /></div>
+          </div>
+          <div style={{ display:'flex', gap:10, marginTop:12 }}>
+            <button style={ui.btn} onClick={addOne}>Add student</button>
+            <button style={ui.btnGhost} onClick={()=>setShowAdd(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showImport && canEdit && (
+        <div style={{ ...ui.card, marginBottom:18 }}>
+          <h2 style={ui.h2}>Import students</h2>
+          <p style={{ ...ui.sub, marginBottom:8 }}>
+            One student per line, in this column order: <b>Roll, Name, Course, Semester, Section</b>.
+            Commas or tabs both work, so you can paste straight from Excel. A header row is auto-skipped.
+            Only Roll and Name are required.
+          </p>
+          <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+            <button style={ui.btnGhost} onClick={copyFormat}>Copy format</button>
+            <button style={ui.btnGhost} onClick={downloadTemplate}>Download template (.csv)</button>
+          </div>
           <textarea style={{ ...ui.input, minHeight:150, fontFamily:'var(--font-m)', resize:'vertical' }}
             value={paste} onChange={e=>setPaste(e.target.value)}
-            placeholder={"101, Aman Kumar\n102, Priya Singh\n103, Rohit Sharma"} />
+            placeholder={"Roll, Name, Course, Semester, Section\nBCA2024001, Aman Kumar, BCA, 3rd, A\nBCA2024002, Priya Singh, BCA, 3rd, A"} />
           <div style={{ display:'flex', gap:10, marginTop:12 }}>
             <button style={ui.btn} disabled={importing} onClick={doImport}>{importing?'Importing…':`Import ${parseRows(paste).length} students`}</button>
             <button style={ui.btnGhost} onClick={()=>setShowImport(false)}>Cancel</button>
           </div>
         </div>
+      )}
       )}
 
       {loading ? <div style={{ color:'var(--muted)' }}>Loading…</div>

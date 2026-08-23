@@ -29,6 +29,7 @@ export default function Navbar() {
           {user && <Link to="/batches"><button style={S.tab(is('/batches')||loc.pathname.startsWith('/batch/'))}>🗂️ Batches</button></Link>}
           {user && <Link to="/placement"><button style={S.tab(is('/placement'))}>🎯 Placement</button></Link>}
           {user?.role==='superadmin' && <Link to="/semesters"><button style={S.tab(is('/semesters'))}>📚 Semesters</button></Link>}
+          {user?.role==='superadmin' && <Link to="/duplicates"><button style={S.tab(is('/duplicates'))}>🔀 Duplicates</button></Link>}
           {user?.role==='superadmin' && <Link to="/users"><button style={S.tab(is('/users'))}>👥 Users</button></Link>}
         </div>
         <div style={S.right}>
