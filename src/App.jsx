@@ -9,6 +9,8 @@ import BatchPage     from './pages/BatchPage'
 import PlacementPage from './pages/PlacementPage'
 import UsersPage     from './pages/UsersPage'
 import DuplicatesPage from './pages/DuplicatesPage'
+import CyclesPage     from './pages/CyclesPage'
+import CycleReportPage from './pages/CycleReportPage'
 import Navbar        from './components/Navbar'
 
 function Protected({ children, admin }) {
@@ -30,6 +32,8 @@ export default function App() {
         <Route path="/batches"   element={<Protected><BatchesPage /></Protected>} />
         <Route path="/batch/:id" element={<Protected><BatchPage /></Protected>} />
         <Route path="/placement" element={<Protected><PlacementPage /></Protected>} />
+        <Route path="/cycles"     element={<Protected><CyclesPage /></Protected>} />
+        <Route path="/cycle/:id"  element={<Protected><CycleReportPage /></Protected>} />
         <Route path="/semesters" element={<Protected admin><SemestersPage /></Protected>} />
         <Route path="/users"     element={<Protected admin><UsersPage /></Protected>} />
         <Route path="/duplicates" element={<Protected admin><DuplicatesPage /></Protected>} />
