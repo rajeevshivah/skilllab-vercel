@@ -20,6 +20,8 @@ export default function CyclesPage() {
   const [loading, setLoading] = useState(true)
   const [alert, setAlert] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [multi, setMulti] = useState(false)                // multi-batch mode
+  const [pickedBatches, setPickedBatches] = useState([])   // for multi mode
   const blank = { batch:'', number:'', name:'', startDate:'', endDate:'' }
   const [form, setForm] = useState(blank)
 
@@ -52,6 +54,22 @@ export default function CyclesPage() {
     try {
       await api.post('/cycles', { ...form, number: form.number ? parseInt(form.number) : undefined })
       show('Cycle created.'); setForm(blank); setShowForm(false); load()
+    } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
+
+  function toggleBatch(id) {
+    setPickedBatches(p => p.includes(id) ? p.filter(x=>x!==id) : [...p, id])
+  }
+  async function createMulti() {
+    if (!pickedBatches.length || !form.startDate || !form.endDate) return show('Pick batches and dates', 'error')
+    try {
+      const { data } = await api.post('/cycles/bulk', {
+        batches: pickedBatches, name: form.name, startDate: form.startDate, endDate: form.endDate,
+      })
+      let msg = `Created ${data.createdCount} cycle(s).`
+      if (data.skippedCount) msg += ` Skipped ${data.skippedCount}: ` + data.skipped.map(s=>`${s.name||'?'} (${s.reason})`).join(', ')
+      show(msg, data.skippedCount ? 'error' : 'success')
+      setForm(blank); setPickedBatches([]); setShowForm(false); load()
     } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
   async function openReport(c) {
@@ -92,27 +110,65 @@ export default function CyclesPage() {
 
       {showForm && isAdmin && (
         <div style={{ ...ui.card, marginBottom:20 }}>
-          <h2 style={ui.h2}>Create cycle</h2>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12 }}>
-            <div><label style={ui.label}>Batch</label>
-              <select style={ui.input} value={form.batch} onChange={e=>pickBatch(e.target.value)}>
-                <option value="">— select batch —</option>
-                {batches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-              </select></div>
-            <div><label style={ui.label}>Cycle number</label>
-              <input style={ui.input} type="number" value={form.number} onChange={e=>setForm({...form,number:e.target.value})} placeholder="auto" /></div>
-            <div><label style={ui.label}>Name (optional)</label>
-              <input style={ui.input} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. React basics" /></div>
-            <div><label style={ui.label}>Start date</label>
-              <input style={ui.input} type="date" value={form.startDate} onChange={e=>setForm({...form,startDate:e.target.value})} /></div>
-            <div><label style={ui.label}>End date</label>
-              <input style={ui.input} type="date" value={form.endDate} onChange={e=>setForm({...form,endDate:e.target.value})} /></div>
+          <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+            <button style={{ ...ui.btnGhost, background: !multi?'var(--blue)':'rgba(255,255,255,0.06)', color: !multi?'#fff':'rgba(255,255,255,0.8)' }} onClick={()=>setMulti(false)}>One batch</button>
+            <button style={{ ...ui.btnGhost, background: multi?'var(--blue)':'rgba(255,255,255,0.06)', color: multi?'#fff':'rgba(255,255,255,0.8)' }} onClick={()=>setMulti(true)}>Multiple batches (same dates)</button>
           </div>
-          <p style={{ ...ui.sub, marginTop:8 }}>Number is auto-suggested for the chosen batch — override if needed. Dates can't overlap another cycle in the same batch (a cycle ending the 24th means the next starts the 25th).</p>
-          <div style={{ display:'flex', gap:10, marginTop:14 }}>
-            <button style={ui.btn} onClick={create}>Create cycle</button>
-            <button style={ui.btnGhost} onClick={()=>setShowForm(false)}>Cancel</button>
-          </div>
+
+          {!multi ? (
+            <>
+              <h2 style={ui.h2}>Create cycle</h2>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12 }}>
+                <div><label style={ui.label}>Batch</label>
+                  <select style={ui.input} value={form.batch} onChange={e=>pickBatch(e.target.value)}>
+                    <option value="">— select batch —</option>
+                    {batches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                  </select></div>
+                <div><label style={ui.label}>Cycle number</label>
+                  <input style={ui.input} type="number" value={form.number} onChange={e=>setForm({...form,number:e.target.value})} placeholder="auto" /></div>
+                <div><label style={ui.label}>Name (optional)</label>
+                  <input style={ui.input} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. React basics" /></div>
+                <div><label style={ui.label}>Start date</label>
+                  <input style={ui.input} type="date" value={form.startDate} onChange={e=>setForm({...form,startDate:e.target.value})} /></div>
+                <div><label style={ui.label}>End date</label>
+                  <input style={ui.input} type="date" value={form.endDate} onChange={e=>setForm({...form,endDate:e.target.value})} /></div>
+              </div>
+              <p style={{ ...ui.sub, marginTop:8 }}>Number is auto-suggested for the chosen batch — override if needed. Dates can't overlap another cycle in the same batch (a cycle ending the 24th means the next starts the 25th).</p>
+              <div style={{ display:'flex', gap:10, marginTop:14 }}>
+                <button style={ui.btn} onClick={create}>Create cycle</button>
+                <button style={ui.btnGhost} onClick={()=>setShowForm(false)}>Cancel</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 style={ui.h2}>Create cycle for multiple batches</h2>
+              <p style={{ ...ui.sub, marginBottom:12 }}>Same dates applied to each selected batch. Each batch gets its own next cycle number automatically (e.g. Cycle 3 for a 3rd-year batch, Cycle 1 for a 1st-year batch). Any batch that already has a cycle on these dates is skipped.</p>
+              <label style={ui.label}>Select batches</label>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:14 }}>
+                {batches.length === 0 && <span style={ui.sub}>No batches in this semester.</span>}
+                {batches.map(b => (
+                  <button key={b._id} onClick={()=>toggleBatch(b._id)}
+                    style={{ ...ui.btnGhost,
+                      background: pickedBatches.includes(b._id) ? 'var(--blue)' : 'rgba(255,255,255,0.06)',
+                      color: pickedBatches.includes(b._id) ? '#fff' : 'rgba(255,255,255,0.8)' }}>
+                    {pickedBatches.includes(b._id) ? '✓ ' : ''}{b.name}{b.track?` (${b.track})`:''}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12 }}>
+                <div><label style={ui.label}>Name (optional)</label>
+                  <input style={ui.input} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="applies to all" /></div>
+                <div><label style={ui.label}>Start date</label>
+                  <input style={ui.input} type="date" value={form.startDate} onChange={e=>setForm({...form,startDate:e.target.value})} /></div>
+                <div><label style={ui.label}>End date</label>
+                  <input style={ui.input} type="date" value={form.endDate} onChange={e=>setForm({...form,endDate:e.target.value})} /></div>
+              </div>
+              <div style={{ display:'flex', gap:10, marginTop:14 }}>
+                <button style={ui.btn} onClick={createMulti}>Create for {pickedBatches.length} batch{pickedBatches.length===1?'':'es'}</button>
+                <button style={ui.btnGhost} onClick={()=>setShowForm(false)}>Cancel</button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
