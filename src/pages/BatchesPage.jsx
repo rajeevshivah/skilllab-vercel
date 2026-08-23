@@ -27,7 +27,11 @@ export default function BatchesPage() {
   async function load() {
     setLoading(true)
     try {
-      const { data } = await api.get('/batches', { params:{ semester: selected._id } })
+      // Superadmin sees every batch in the selected semester.
+      // Trainers/co-trainers see ONLY the batches they are assigned to (active semester).
+      const { data } = isAdmin
+        ? await api.get('/batches', { params:{ semester: selected._id } })
+        : await api.get('/batches/mine')
       setBatches(data.batches)
       if (isAdmin) {
         const u = await api.get('/auth/users')

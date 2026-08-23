@@ -22,6 +22,11 @@ export default function BatchPage() {
 
   if (!batch) return <div style={{ ...ui.wrap, color:'var(--muted)' }}>Loading batch…</div>
 
+  // Can this user edit this batch? Superadmin always; a trainer only if assigned to it.
+  const myId = user?.id || user?._id
+  const canEdit = user?.role === 'superadmin'
+    || (batch.trainers || []).some(t => (t._id || t) === myId)
+
   return (
     <div style={ui.wrap}>
       <Link to="/batches" style={{ ...ui.sub, color:'var(--blue)' }}>← All batches</Link>
@@ -34,6 +39,12 @@ export default function BatchPage() {
         </div>
       </div>
 
+      {!canEdit && (
+        <div style={{ background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.35)', color:'var(--gold)', padding:'10px 14px', borderRadius:9, fontSize:13, marginTop:14 }}>
+          View only — you're not assigned to this batch, so you can't make changes here.
+        </div>
+      )}
+
       <div style={{ display:'flex', gap:4, borderBottom:'1px solid rgba(255,255,255,0.09)', margin:'18px 0 20px', flexWrap:'wrap' }}>
         {TABS.map(t => (
           <button key={t} onClick={()=>setTab(t)}
@@ -45,16 +56,16 @@ export default function BatchPage() {
 
       <Alert alert={alert} />
 
-      {tab === 'Daily Log' && <DailyLogTab batchId={id} show={show} />}
-      {tab === 'Roster'    && <RosterTab batchId={id} user={user} show={show} />}
-      {tab === 'Plan'      && <PlanTab batchId={id} show={show} />}
-      {tab === 'Toppers'   && <ToppersTab batchId={id} user={user} show={show} />}
+      {tab === 'Daily Log' && <DailyLogTab batchId={id} show={show} canEdit={canEdit} />}
+      {tab === 'Roster'    && <RosterTab batchId={id} user={user} show={show} canEdit={canEdit} />}
+      {tab === 'Plan'      && <PlanTab batchId={id} show={show} canEdit={canEdit} />}
+      {tab === 'Toppers'   && <ToppersTab batchId={id} user={user} show={show} canEdit={canEdit} />}
     </div>
   )
 }
 
 /* ─────────────── DAILY LOG ─────────────── */
-function DailyLogTab({ batchId, show }) {
+function DailyLogTab({ batchId, show, canEdit }) {
   const today = new Date().toISOString().slice(0,10)
   const [date, setDate] = useState(today)
   const [plan, setPlan] = useState(null)
@@ -185,13 +196,13 @@ function DailyLogTab({ batchId, show }) {
             </div>}
       </div>
 
-      <div><button style={ui.btnGold} disabled={saving} onClick={save}>{saving?'Saving…':'Save daily log'}</button></div>
+      {canEdit && <div><button style={ui.btnGold} disabled={saving} onClick={save}>{saving?'Saving…':'Save daily log'}</button></div>}
     </div>
   )
 }
 
 /* ─────────────── ROSTER ─────────────── */
-function RosterTab({ batchId, user, show }) {
+function RosterTab({ batchId, user, show, canEdit }) {
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [paste, setPaste] = useState('')
@@ -240,7 +251,7 @@ function RosterTab({ batchId, user, show }) {
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
         <p style={ui.sub}>{students.length} students</p>
-        <button style={ui.btnGold} onClick={()=>setShowImport(v=>!v)}>Bulk import</button>
+        {canEdit && <button style={ui.btnGold} onClick={()=>setShowImport(v=>!v)}>Bulk import</button>}
       </div>
 
       {showImport && (
@@ -281,10 +292,10 @@ function RosterTab({ batchId, user, show }) {
                       <td style={ui.td}>{s.stats?.topperCount||0}</td>
                       <td style={ui.td}>{s.stats?.projectCount||0}</td>
                       <td style={ui.td}>
-                        <button style={ui.btnGhost} onClick={()=>toggleFlag(s)}>{s.flagged?'Unflag':'Flag'}</button>
+                        {canEdit && <button style={ui.btnGhost} onClick={()=>toggleFlag(s)}>{s.flagged?'Unflag':'Flag'}</button>}
                       </td>
                       <td style={ui.td}>
-                        {user?.role!=='cotrainer' && <button style={ui.btnDanger} onClick={()=>remove(s)}>Remove</button>}
+                        {canEdit && user?.role!=='cotrainer' && <button style={ui.btnDanger} onClick={()=>remove(s)}>Remove</button>}
                       </td>
                     </tr>
                   ))}
@@ -298,7 +309,7 @@ function RosterTab({ batchId, user, show }) {
 }
 
 /* ─────────────── PLAN ─────────────── */
-function PlanTab({ batchId, show }) {
+function PlanTab({ batchId, show, canEdit }) {
   const [topics, setTopics] = useState([])
   const [loading, setLoading] = useState(true)
   const [newTitle, setNewTitle] = useState('')
@@ -341,16 +352,16 @@ function PlanTab({ batchId, show }) {
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
         <p style={ui.sub}>{done}/{topics.length} topics done · "next topic" on the dashboard is the first pending one.</p>
-        <button style={ui.btnGold} disabled={saving} onClick={save}>{saving?'Saving…':'Save plan'}</button>
+        {canEdit && <button style={ui.btnGold} disabled={saving} onClick={save}>{saving?'Saving…':'Save plan'}</button>}
       </div>
 
-      <div style={{ ...ui.card, marginBottom:16 }}>
+      {canEdit && <div style={{ ...ui.card, marginBottom:16 }}>
         <div style={{ display:'flex', gap:10 }}>
           <input style={ui.input} placeholder="Add a topic…" value={newTitle}
             onChange={e=>setNewTitle(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTopic()} />
           <button style={ui.btn} onClick={addTopic}>Add</button>
         </div>
-      </div>
+      </div>}
 
       {topics.length === 0 ? <Empty icon="📋" title="No topics yet" hint="Add the ordered topic list for this batch." />
         : <div style={{ display:'grid', gap:8 }}>
@@ -358,14 +369,14 @@ function PlanTab({ batchId, show }) {
               <div key={t._id||i} style={{ ...ui.cardSm, display:'flex', alignItems:'center', gap:12 }}>
                 <span style={{ color:'var(--muted)', fontFamily:'var(--font-m)', fontSize:12, minWidth:24 }}>{i+1}</span>
                 <span style={{ flex:1, fontWeight:500, textDecoration: t.status==='done'?'line-through':'none', opacity:t.status==='done'?0.6:1 }}>{t.title}</span>
-                <select style={{ ...ui.input, width:'auto', padding:'5px 8px' }} value={t.status} onChange={e=>setStatus(i, e.target.value)}>
+                <select style={{ ...ui.input, width:'auto', padding:'5px 8px' }} value={t.status} disabled={!canEdit} onChange={e=>setStatus(i, e.target.value)}>
                   <option value="pending">Pending</option>
                   <option value="in-progress">In progress</option>
                   <option value="done">Done</option>
                 </select>
-                <button style={ui.btnGhost} onClick={()=>move(i,-1)} title="Up">↑</button>
-                <button style={ui.btnGhost} onClick={()=>move(i,1)} title="Down">↓</button>
-                <button style={ui.btnDanger} onClick={()=>del(i)}>✕</button>
+                {canEdit && <button style={ui.btnGhost} onClick={()=>move(i,-1)} title="Up">↑</button>}
+                {canEdit && <button style={ui.btnGhost} onClick={()=>move(i,1)} title="Down">↓</button>}
+                {canEdit && <button style={ui.btnDanger} onClick={()=>del(i)}>✕</button>}
               </div>
             ))}
           </div>}
@@ -374,7 +385,7 @@ function PlanTab({ batchId, show }) {
 }
 
 /* ─────────────── TOPPERS ─────────────── */
-function ToppersTab({ batchId, user, show }) {
+function ToppersTab({ batchId, user, show, canEdit }) {
   const [toppers, setToppers] = useState([])
   const [roster, setRoster] = useState([])
   const [loading, setLoading] = useState(true)
@@ -410,7 +421,7 @@ function ToppersTab({ batchId, user, show }) {
 
   return (
     <div>
-      <div style={{ ...ui.card, marginBottom:18 }}>
+      {canEdit && <div style={{ ...ui.card, marginBottom:18 }}>
         <h2 style={ui.h2}>Add top-3 for a cycle</h2>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12 }}>
           <div><label style={ui.label}>Student</label>
@@ -429,7 +440,7 @@ function ToppersTab({ batchId, user, show }) {
         </div>
         <button style={{ ...ui.btn, marginTop:14 }} onClick={add}>Add topper</button>
         {roster.length===0 && <p style={{ ...ui.sub, marginTop:10 }}>Import students first (Roster tab) — toppers link to real students.</p>}
-      </div>
+      </div>}
 
       {toppers.length === 0 ? <Empty icon="🏆" title="No toppers yet" />
         : <div style={{ display:'grid', gap:8 }}>
@@ -441,7 +452,7 @@ function ToppersTab({ batchId, user, show }) {
                   <div style={ui.sub}>{t.cycle}{t.project && ' · has project'}</div>
                 </div>
                 {t.project && <a href={t.project} target="_blank" rel="noreferrer"><button style={ui.btnGhost}>Project ↗</button></a>}
-                {user?.role!=='cotrainer' && <button style={ui.btnDanger} onClick={()=>remove(t._id)}>Remove</button>}
+                {canEdit && user?.role!=='cotrainer' && <button style={ui.btnDanger} onClick={()=>remove(t._id)}>Remove</button>}
               </div>
             ))}
           </div>}
