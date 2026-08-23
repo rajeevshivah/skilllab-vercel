@@ -125,6 +125,7 @@ function DailyLogTab({ batchId, show, canEdit }) {
   const presentCount = roster.filter(s => present[s._id]).length
 
   return (
+    <fieldset disabled={!canEdit} style={{ border:'none', margin:0, padding:0, opacity: canEdit ? 1 : 0.6 }}>
     <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:18 }}>
       <div style={{ display:'flex', gap:14, alignItems:'center', flexWrap:'wrap' }}>
         <div><label style={ui.label}>Date</label>
@@ -198,6 +199,7 @@ function DailyLogTab({ batchId, show, canEdit }) {
 
       {canEdit && <div><button style={ui.btnGold} disabled={saving} onClick={save}>{saving?'Saving…':'Save daily log'}</button></div>}
     </div>
+    </fieldset>
   )
 }
 
