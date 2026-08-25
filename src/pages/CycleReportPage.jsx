@@ -10,6 +10,12 @@ export default function CycleReportPage() {
   const [cycle, setCycle] = useState(null)
   const [live, setLive] = useState(null)
   const [form, setForm] = useState({})
+  const [roster, setRoster] = useState([])
+  const [top3, setTop3] = useState([
+    { rank:1, student:'', name:'', roll:'', github:'', photo:null },
+    { rank:2, student:'', name:'', roll:'', github:'', photo:null },
+    { rank:3, student:'', name:'', roll:'', github:'', photo:null },
+  ])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [alert, setAlert] = useState(null)
@@ -21,6 +27,20 @@ export default function CycleReportPage() {
     try {
       const { data } = await api.get(`/cycles/${id}`)
       setCycle(data.cycle); setLive(data.live)
+      // load roster for the top-3 picker
+      const batchId = data.cycle.batch?._id || data.cycle.batch
+      if (batchId) {
+        try { const r = await api.get('/students', { params:{ batch: batchId } }); setRoster(r.data.students) } catch { /* ignore */ }
+      }
+      // seed top3 from saved report if present
+      const saved = data.cycle.report?.top3 || []
+      if (saved.length) {
+        setTop3([1,2,3].map(rank => {
+          const e = saved.find(x => x.rank === rank) || {}
+          return { rank, student: e.student || '', name: e.name || '', roll: e.roll || '', github: e.github || '',
+            photo: e.photo?.data ? `data:${e.photo.contentType};base64,${e.photo.data}` : (typeof e.photo === 'string' ? e.photo : null) }
+        }))
+      }
       // seed the form: use saved report values, else fall back to live-computed
       const r = data.cycle.report || {}
       const L = data.live || {}
@@ -59,6 +79,26 @@ export default function CycleReportPage() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const numOrNull = (v) => v === '' || v == null ? null : Number(v)
 
+  function setTopField(rank, field, value) {
+    setTop3(arr => arr.map(t => {
+      if (t.rank !== rank) return t
+      const next = { ...t, [field]: value }
+      // when a student is picked, auto-fill name+roll from roster
+      if (field === 'student') {
+        const s = roster.find(x => x._id === value)
+        if (s) { next.name = s.name; next.roll = s.roll || '' }
+      }
+      return next
+    }))
+  }
+  function setTopPhoto(rank, file) {
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { show('Photo too large (max 2MB)', 'error'); return }
+    const reader = new FileReader()
+    reader.onload = () => setTop3(arr => arr.map(t => t.rank===rank ? { ...t, photo: reader.result } : t))
+    reader.readAsDataURL(file)
+  }
+
   async function save() {
     setSaving(true)
     try {
@@ -81,6 +121,9 @@ export default function CycleReportPage() {
         reflection: form.reflection,
         projectTitle: form.projectTitle,
         projectNote: form.projectNote,
+        top3: top3
+          .filter(t => t.student || t.name)   // only ranks that were filled
+          .map(t => ({ rank: t.rank, student: t.student || null, name: t.name, roll: t.roll, github: t.github, photo: t.photo })),
       })
       show('Report saved.')
       load()
@@ -184,6 +227,37 @@ export default function CycleReportPage() {
             <Field label="Topics we couldn't cover"><textarea style={{ ...ui.input, minHeight:50, resize:'vertical' }} value={form.topicsNotCovered} onChange={e=>set('topicsNotCovered',e.target.value)} /></Field>
             <Field label="Your reflection / what you'd do differently"><textarea style={{ ...ui.input, minHeight:60, resize:'vertical' }} value={form.reflection} onChange={e=>set('reflection',e.target.value)} /></Field>
           </div>
+        </div>
+
+        {/* Top 3 */}
+        <div style={{ ...ui.card, marginBottom:16 }}>
+          <h2 style={ui.h2}>Top 3 <span style={{ ...ui.sub, fontFamily:'var(--font-b)' }}>· shown on the public Hall of Fame</span></h2>
+          <div style={{ display:'grid', gap:14 }}>
+            {top3.map(t => (
+              <div key={t.rank} style={{ ...ui.cardSm, display:'grid', gridTemplateColumns:'auto 1fr', gap:14, alignItems:'start' }}>
+                <div style={{ textAlign:'center' }}>
+                  <div style={{ fontSize:22 }}>{t.rank===1?'🥇':t.rank===2?'🥈':'🥉'}</div>
+                  <div style={{ width:64, height:64, borderRadius:'50%', overflow:'hidden', background:'rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'center', margin:'6px auto 0' }}>
+                    {t.photo ? <img src={t.photo} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:20, color:'var(--muted)' }}>{t.name?.[0] || '?'}</span>}
+                  </div>
+                  {canFill && <label style={{ ...ui.btnGhost, display:'inline-block', marginTop:6, fontSize:11, cursor:'pointer' }}>
+                    Photo<input type="file" accept="image/*" style={{ display:'none' }} onChange={e=>setTopPhoto(t.rank, e.target.files[0])} />
+                  </label>}
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:10 }}>
+                  <div><label style={ui.label}>Rank {t.rank} — student</label>
+                    <select style={ui.input} value={t.student} onChange={e=>setTopField(t.rank,'student',e.target.value)}>
+                      <option value="">— select —</option>
+                      {roster.map(s => <option key={s._id} value={s._id}>{s.roll?`${s.roll} · `:''}{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div><label style={ui.label}>GitHub repo</label>
+                    <input style={ui.input} value={t.github} onChange={e=>setTopField(t.rank,'github',e.target.value)} placeholder="https://github.com/…" /></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {roster.length===0 && <p style={{ ...ui.sub, marginTop:10 }}>No students in this batch roster yet — import them in the batch's Roster tab first.</p>}
         </div>
 
         {canFill && <button style={ui.btnGold} disabled={saving} onClick={save}>{saving?'Saving…':'Save report'}</button>}

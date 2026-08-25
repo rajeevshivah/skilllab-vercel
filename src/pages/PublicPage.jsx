@@ -2,99 +2,82 @@ import { useState, useEffect } from 'react'
 import api from '../api'
 import { ui, Empty } from '../components/ui'
 
-const RANK = { 1:{ m:'🥇', label:'1st' }, 2:{ m:'🥈', label:'2nd' }, 3:{ m:'🥉', label:'3rd' } }
+const MEDAL = { 1:'🥇', 2:'🥈', 3:'🥉' }
 
 export default function PublicPage() {
   const [semesters, setSemesters] = useState([])
   const [semId, setSemId] = useState('')
-  const [batches, setBatches] = useState([])
-  const [toppers, setToppers] = useState([])
+  const [cycles, setCycles] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [batchFilter, setBatchFilter] = useState('')
 
   useEffect(() => {
     api.get('/semesters').then(({ data }) => {
       setSemesters(data.semesters)
       const active = data.semesters.find(s=>s.status==='active') || data.semesters[0]
       setSemId(active?._id || '')
-    })
+    }).catch(()=>{})
   }, [])
 
   useEffect(() => { if (semId) load() }, [semId])
   async function load() {
     setLoading(true)
     try {
-      const [b, t] = await Promise.all([
-        api.get('/batches', { params:{ semester: semId } }),
-        api.get('/toppers', { params:{ semester: semId } }),
-      ])
-      setBatches(b.data.batches); setToppers(t.data.toppers)
+      const { data } = await api.get('/cycles/halloffame', { params:{ semester: semId } })
+      setCycles(data.cycles)
     } catch { /* ignore */ }
     finally { setLoading(false) }
   }
 
-  const filtered = toppers.filter(t => {
-    if (batchFilter && t.batch?._id !== batchFilter) return false
-    if (search) {
-      const q = search.toLowerCase()
-      if (!t.student?.name?.toLowerCase().includes(q) && !t.student?.roll?.toLowerCase().includes(q)) return false
-    }
-    return true
-  })
+  const fmt = (d) => new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short' })
 
-  // group by batch -> cycle
-  const grouped = {}
-  filtered.forEach(t => {
-    const bn = t.batch?.name || 'Unknown'
-    grouped[bn] = grouped[bn] || {}
-    grouped[bn][t.cycle] = grouped[bn][t.cycle] || []
-    grouped[bn][t.cycle].push(t)
-  })
+  // filter by search across the top3 names/rolls; drop cycles with no match
+  const shown = cycles.map(c => ({
+    ...c,
+    top3: c.top3.filter(t => {
+      if (!search) return true
+      const q = search.toLowerCase()
+      return (t.name||'').toLowerCase().includes(q) || (t.roll||'').toLowerCase().includes(q)
+    })
+  })).filter(c => c.top3.length)
 
   return (
     <div style={ui.wrap}>
       <div style={{ textAlign:'center', marginBottom:26 }}>
         <div style={{ fontSize:44, marginBottom:8 }}>🏆</div>
         <h1 style={{ ...ui.h1, fontSize:34 }}>Skill Lab Hall of Fame</h1>
-        <p style={ui.sub}>Top performers across every batch — SHEAT College Skill Lab</p>
+        <p style={ui.sub}>Top performers by cycle — SHEAT College Skill Lab</p>
       </div>
 
       <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap', marginBottom:24 }}>
         <select style={{ ...ui.input, width:'auto' }} value={semId} onChange={e=>setSemId(e.target.value)}>
           {semesters.map(s => <option key={s._id} value={s._id}>{s.name}{s.status==='active'?' (active)':''}</option>)}
         </select>
-        <select style={{ ...ui.input, width:'auto' }} value={batchFilter} onChange={e=>setBatchFilter(e.target.value)}>
-          <option value="">All batches</option>
-          {batches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-        </select>
-        <input style={{ ...ui.input, width:'auto', minWidth:200 }} placeholder="Search name / roll…" value={search} onChange={e=>setSearch(e.target.value)} />
+        <input style={{ ...ui.input, width:'auto', minWidth:220 }} placeholder="Search name / roll…" value={search} onChange={e=>setSearch(e.target.value)} />
       </div>
 
       {loading ? <div style={{ textAlign:'center', color:'var(--muted)' }}>Loading…</div>
-        : Object.keys(grouped).length === 0 ? <Empty icon="🏆" title="No toppers to show yet" hint="Winners appear here as cycles complete." />
-        : Object.entries(grouped).map(([bn, cycles]) => (
-          <div key={bn} style={{ marginBottom:30 }}>
-            <h2 style={{ ...ui.h2, borderLeft:'3px solid var(--gold)', paddingLeft:12 }}>{bn}</h2>
-            {Object.entries(cycles).sort().map(([cycle, list]) => (
-              <div key={cycle} style={{ marginBottom:16 }}>
-                <div style={{ ...ui.sub, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.06em' }}>{cycle}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:12 }}>
-                  {list.sort((a,b)=>a.rank-b.rank).map(t => (
-                    <div key={t._id} style={{ ...ui.card, display:'flex', alignItems:'center', gap:12 }}>
-                      <div style={{ width:52, height:52, borderRadius:'50%', overflow:'hidden', background:'rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>
-                        {t.student?.photo ? <img src={t.student.photo} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : (t.student?.name?.[0] || '?')}
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontWeight:700 }}>{RANK[t.rank]?.m} {t.student?.name || '—'}</div>
-                        {t.student?.roll && <div style={ui.sub}>{t.student.roll}</div>}
-                        {t.project && <a href={t.project} target="_blank" rel="noreferrer" style={{ fontSize:12, color:'var(--blue)' }}>View project ↗</a>}
-                      </div>
-                    </div>
-                  ))}
+        : shown.length === 0 ? <Empty icon="🏆" title="No toppers yet" hint="Winners appear here once trainers submit a cycle's top 3." />
+        : shown.map(c => (
+          <div key={c._id} style={{ marginBottom:30 }}>
+            <div style={{ display:'flex', alignItems:'baseline', gap:10, borderLeft:'3px solid var(--gold)', paddingLeft:12, marginBottom:14, flexWrap:'wrap' }}>
+              <h2 style={{ ...ui.h2, marginBottom:0 }}>{c.batch?.name || 'Batch'} — Cycle {c.number}{c.name?` · ${c.name}`:''}</h2>
+              <span style={ui.sub}>{fmt(c.startDate)} → {fmt(c.endDate)}{c.batch?.track?` · ${c.batch.track}`:''}</span>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:14 }}>
+              {c.top3.map((t,i) => (
+                <div key={i} style={{ ...ui.card, display:'flex', alignItems:'center', gap:14 }}>
+                  <div style={{ width:60, height:60, borderRadius:'50%', overflow:'hidden', background:'rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    {t.photo ? <img src={t.photo} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:24 }}>{MEDAL[t.rank]}</span>}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:700 }}>{MEDAL[t.rank]} {t.name || '—'}</div>
+                    {t.roll && <div style={ui.sub}>{t.roll}</div>}
+                    {t.github && <a href={t.github} target="_blank" rel="noreferrer" style={{ fontSize:12, color:'var(--blue)' }}>GitHub repo ↗</a>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ))}
     </div>
