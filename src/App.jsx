@@ -11,6 +11,7 @@ import UsersPage     from './pages/UsersPage'
 import DuplicatesPage from './pages/DuplicatesPage'
 import CyclesPage     from './pages/CyclesPage'
 import CycleReportPage from './pages/CycleReportPage'
+import CycleMarksPage  from './pages/CycleMarksPage'
 import Navbar        from './components/Navbar'
 
 function Protected({ children, admin }) {
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/placement" element={<Protected><PlacementPage /></Protected>} />
         <Route path="/cycles"     element={<Protected><CyclesPage /></Protected>} />
         <Route path="/cycle/:id"  element={<Protected><CycleReportPage /></Protected>} />
+        <Route path="/cycle/:id/marks" element={<Protected><CycleMarksPage /></Protected>} />
         <Route path="/semesters" element={<Protected admin><SemestersPage /></Protected>} />
         <Route path="/users"     element={<Protected admin><UsersPage /></Protected>} />
         <Route path="/duplicates" element={<Protected admin><DuplicatesPage /></Protected>} />

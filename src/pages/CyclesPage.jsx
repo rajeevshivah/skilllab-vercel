@@ -191,6 +191,7 @@ export default function CyclesPage() {
                     </div>
                     <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                       <Link to={`/cycle/${c._id}`}><button style={ui.btn}>{c.status==='closed' ? 'View report' : 'Open report form'}</button></Link>
+                      <Link to={`/cycle/${c._id}/marks`}><button style={ui.btnGhost}>Marks</button></Link>
                       {isAdmin && c.status==='active' && <button style={ui.btnGhost} onClick={()=>openReport(c)}>Open for trainers</button>}
                       {isAdmin && c.status==='report-open' && <button style={ui.btnGold} onClick={()=>closeCycle(c)}>Close & freeze</button>}
                       {isAdmin && c.status==='closed' && <button style={ui.btnGhost} onClick={()=>openReport(c)}>Reopen</button>}

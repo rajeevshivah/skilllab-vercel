@@ -98,6 +98,17 @@ export default function CycleReportPage() {
     reader.onload = () => setTop3(arr => arr.map(t => t.rank===rank ? { ...t, photo: reader.result } : t))
     reader.readAsDataURL(file)
   }
+  async function suggestFromMarks() {
+    try {
+      const { data } = await api.get(`/marks/${id}/top3-suggestion`)
+      if (!data.top3.length) return show('No evaluated marks yet to suggest from', 'error')
+      setTop3(arr => arr.map(t => {
+        const s = data.top3.find(x => x.rank === t.rank)
+        return s ? { ...t, student: s.student, name: s.name, roll: s.roll } : t
+      }))
+      show('Top 3 filled from marks — add GitHub links and photos, then save.')
+    } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
 
   async function save() {
     setSaving(true)
@@ -232,6 +243,7 @@ export default function CycleReportPage() {
         {/* Top 3 */}
         <div style={{ ...ui.card, marginBottom:16 }}>
           <h2 style={ui.h2}>Top 3 <span style={{ ...ui.sub, fontFamily:'var(--font-b)' }}>· shown on the public Hall of Fame</span></h2>
+          {canFill && <button style={{ ...ui.btnGhost, marginBottom:12 }} type="button" onClick={suggestFromMarks}>Auto-fill from marks</button>}
           <div style={{ display:'grid', gap:14 }}>
             {top3.map(t => (
               <div key={t.rank} style={{ ...ui.cardSm, display:'grid', gridTemplateColumns:'auto 1fr', gap:14, alignItems:'start' }}>

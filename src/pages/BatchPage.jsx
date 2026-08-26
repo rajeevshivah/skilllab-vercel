@@ -37,6 +37,23 @@ export default function BatchPage() {
             {batch.track && `${batch.track} · `}{batch.composition || 'No composition set'} · Trainers: {(batch.trainers||[]).map(t=>t.name).join(', ')||'none'}
           </p>
         </div>
+        {user?.role==='superadmin' && (
+          <div style={{ textAlign:'right' }}>
+            <span style={ui.pill(
+              batch.rosterLocked ? 'rgba(22,163,74,0.18)' : 'rgba(245,158,11,0.18)',
+              batch.rosterLocked ? '#86EFAC' : '#FCD34D'
+            )}>{batch.rosterLocked ? 'Roster locked' : 'Roster provisional'}</span>
+            <div style={{ marginTop:8 }}>
+              <button style={ui.btnGhost} onClick={async ()=>{
+                try {
+                  const { data } = await api.patch(`/batches/${id}/roster-lock`, { locked: !batch.rosterLocked })
+                  setBatch(b => ({ ...b, rosterLocked: data.batch.rosterLocked }))
+                  show(data.batch.rosterLocked ? 'Roster locked — attendance now final.' : 'Roster unlocked.')
+                } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+              }}>{batch.rosterLocked ? 'Unlock roster' : 'Lock roster (finalise)'}</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {!canEdit && (
