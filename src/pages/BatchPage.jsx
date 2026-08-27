@@ -91,6 +91,7 @@ function DailyLogTab({ batchId, show, canEdit }) {
   const [status, setStatus] = useState('done')
   const [notes, setNotes] = useState('')
   const [prepLink, setPrepLink] = useState('')
+  const [planned, setPlanned] = useState(null) // planned class from the cycle plan for this date
   const [present, setPresent] = useState({}) // studentId -> bool
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -106,6 +107,11 @@ function DailyLogTab({ batchId, show, canEdit }) {
       ])
       setPlan(p.data.plan)
       setRoster(r.data.students)
+      // planned class from the cycle plan for this date (if any)
+      try {
+        const pl = await api.get('/cycleplans/for-date/lookup', { params:{ batch: batchId, date } })
+        setPlanned(pl.data.planned)
+      } catch { setPlanned(null) }
       // existing log for this date?
       const one = await api.get('/logs/one', { params:{ batch: batchId, date } })
       if (one.data.log) {
@@ -151,6 +157,20 @@ function DailyLogTab({ batchId, show, canEdit }) {
           <span style={ui.sub}>Suggested next topic: </span><span style={{ fontWeight:600 }}>{nextTopic.title}</span>
         </div>}
       </div>
+
+      {planned && (planned.title || planned.notes) && (
+        <div style={{ background:'rgba(37,99,235,0.1)', border:'1px solid rgba(37,99,235,0.3)', borderRadius:9, padding:'12px 14px' }}>
+          <div style={{ ...ui.sub, marginBottom:2 }}>Planned for today (from cycle plan):</div>
+          <div style={{ fontWeight:600 }}>{planned.title || '(no title)'}</div>
+          {planned.notes && <div style={{ ...ui.sub, marginTop:2 }}>{planned.notes}</div>}
+          {canEdit && !notes && (planned.title || planned.notes) && (
+            <button style={{ ...ui.btnGhost, marginTop:8 }} type="button"
+              onClick={()=>setNotes([planned.title, planned.notes].filter(Boolean).join(' — '))}>
+              Use as today's note
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Topics covered */}
       <div style={ui.card}>

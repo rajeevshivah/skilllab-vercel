@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import GlobalSearch from './GlobalSearch'
 
 const S = {
   nav: { position:'sticky',top:0,zIndex:100,background:'rgba(10,22,40,0.92)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(255,255,255,0.07)' },
@@ -34,6 +35,7 @@ export default function Navbar() {
           {user?.role==='superadmin' && <Link to="/users"><button style={S.tab(is('/users'))}>👥 Users</button></Link>}
         </div>
         <div style={S.right}>
+          {user && <GlobalSearch />}
           {user ? (
             <>
               <span style={S.user}>{user.name} · <span style={{ textTransform:'capitalize', color:'var(--gold)' }}>{user.role}</span></span>
