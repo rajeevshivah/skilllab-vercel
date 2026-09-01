@@ -48,8 +48,8 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p style={{marginTop:20,fontSize:12,color:'rgba(255,255,255,0.2)'}}>
-          Default: admin@sheat.ac.in / sheat@admin2026
+        <p style={{marginTop:20,fontSize:12,color:'rgba(255,255,255,0.25)'}}>
+          Trainers — ask the Skill Lab admin for your login.
         </p>
       </div>
     </div>

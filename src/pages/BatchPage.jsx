@@ -93,6 +93,7 @@ function DailyLogTab({ batchId, show, canEdit }) {
   const [prepLink, setPrepLink] = useState('')
   const [planned, setPlanned] = useState(null) // planned class from the cycle plan for this date
   const [present, setPresent] = useState({}) // studentId -> bool
+  const [attQuery, setAttQuery] = useState('')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -146,6 +147,11 @@ function DailyLogTab({ batchId, show, canEdit }) {
 
   const nextTopic = plan?.topics?.find(t => t.status !== 'done')
   const presentCount = roster.filter(s => present[s._id]).length
+  const aq = attQuery.trim().toLowerCase()
+  // Filtering only changes what is on screen — every student is still saved.
+  const attShown = aq
+    ? roster.filter(s => `${s.roll || ''} ${s.name || ''}`.toLowerCase().includes(aq))
+    : roster
 
   return (
     <fieldset disabled={!canEdit} style={{ border:'none', margin:0, padding:0, opacity: canEdit ? 1 : 0.6 }}>
@@ -214,7 +220,9 @@ function DailyLogTab({ batchId, show, canEdit }) {
       <div style={ui.card}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8 }}>
           <h2 style={{ ...ui.h2, marginBottom:0 }}>Attendance <span style={{ ...ui.sub, fontFamily:'var(--font-b)' }}>· {presentCount}/{roster.length} present</span></h2>
-          <div style={{ display:'flex', gap:8 }}>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <input style={{ ...ui.input, width:190 }} placeholder="Find student…"
+              value={attQuery} onChange={e=>setAttQuery(e.target.value)} />
             <button style={ui.btnGhost} onClick={()=>toggleAll(true)}>All present</button>
             <button style={ui.btnGhost} onClick={()=>toggleAll(false)}>All absent</button>
           </div>
@@ -222,7 +230,7 @@ function DailyLogTab({ batchId, show, canEdit }) {
         {roster.length === 0
           ? <p style={{ ...ui.sub, marginTop:12 }}>No students in this batch yet. Import them in the Roster tab.</p>
           : <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:8, marginTop:14 }}>
-              {roster.map(s => (
+              {attShown.map(s => (
                 <button key={s._id} onClick={()=>setPresent(p=>({ ...p, [s._id]: !p[s._id] }))}
                   style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', borderRadius:8, cursor:'pointer', textAlign:'left',
                     background: present[s._id] ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.12)',
@@ -244,13 +252,19 @@ function DailyLogTab({ batchId, show, canEdit }) {
 function RosterTab({ batchId, user, show, canEdit }) {
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
   const [paste, setPaste] = useState('')
   const [importing, setImporting] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [preview, setPreview] = useState(null)
   const [showImport, setShowImport] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [dupes, setDupes] = useState([])
   const blankAdd = { roll:'', name:'', course:'', sem:'', section:'' }
   const [addForm, setAddForm] = useState(blankAdd)
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState(blankAdd)
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const TEMPLATE_HEADER = 'Roll, Name, Course, Semester, Section'
   const TEMPLATE_SAMPLE = 'Roll, Name, Course, Semester, Section\nBCA2024001, Aman Kumar, BCA, 3rd, A\nBCA2024002, Priya Singh, BCA, 3rd, A'
@@ -274,7 +288,6 @@ function RosterTab({ batchId, user, show, canEdit }) {
         if (p.length === 1) return { roll:'', name:p[0], course:'', sem:'', section:'' }
         return { roll:p[0]||'', name:p[1]||'', course:p[2]||'', sem:p[3]||'', section:p[4]||'' }
       })
-      .filter(r => r.name)
   }
 
   function copyFormat() {
@@ -289,6 +302,18 @@ function RosterTab({ batchId, user, show, canEdit }) {
     URL.revokeObjectURL(url)
   }
 
+  // Dry run on the server: nothing is written, we just find out what would happen.
+  async function checkImport() {
+    const rows = parseRows(paste)
+    if (!rows.length) return show('Nothing to check', 'error')
+    setChecking(true); setPreview(null)
+    try {
+      const { data } = await api.post('/students/bulk', { batch: batchId, rows }, { params:{ preview:1 } })
+      setPreview(data)
+    } catch (e) { show(e.response?.data?.message || 'Check failed', 'error') }
+    finally { setChecking(false) }
+  }
+
   async function doImport() {
     const rows = parseRows(paste)
     if (!rows.length) return show('Nothing to import', 'error')
@@ -296,11 +321,11 @@ function RosterTab({ batchId, user, show, canEdit }) {
     try {
       const { data } = await api.post('/students/bulk', { batch: batchId, rows })
       setDupes(data.duplicates || [])
-      if (data.duplicateCount)
-        show(`Imported ${data.imported}. ${data.duplicateCount} student(s) also exist in another batch — flagged for admin.`)
-      else
-        show(`Imported ${data.imported} students.`)
-      setPaste(''); setShowImport(false); load()
+      const bits = [`Imported ${data.imported}`]
+      if (data.skippedCount)   bits.push(`${data.skippedCount} skipped`)
+      if (data.duplicateCount) bits.push(`${data.duplicateCount} also in another batch`)
+      show(`${bits.join(' · ')}.`)
+      setPaste(''); setPreview(null); setShowImport(false); load()
     } catch (e) { show(e.response?.data?.message || 'Import failed', 'error') }
     finally { setImporting(false) }
   }
@@ -313,20 +338,60 @@ function RosterTab({ batchId, user, show, canEdit }) {
     } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
 
+  function startEdit(s) {
+    setEditingId(s._id)
+    setEditForm({ roll:s.roll||'', name:s.name||'', course:s.course||'', sem:s.sem||'', section:s.section||'' })
+  }
+  async function saveEdit(s) {
+    if (!editForm.name.trim()) return show('Name required', 'error')
+    setSavingEdit(true)
+    try {
+      await api.put(`/students/${s._id}`, editForm)
+      show(`Saved ${editForm.name}.`); setEditingId(null); load()
+    } catch (e) { show(e.response?.data?.message || 'Could not save', 'error') }
+    finally { setSavingEdit(false) }
+  }
+
   async function toggleFlag(s) {
     try { await api.put(`/students/${s._id}`, { flagged: !s.flagged }); load() }
     catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
-  async function remove(s) {
-    if (!confirm(`Remove ${s.name} from this batch?`)) return
-    try { await api.delete(`/students/${s._id}`); show('Removed.'); load() }
-    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+
+  async function remove(s, force=false) {
+    if (!force && !confirm(`Remove ${s.name} from this batch?`)) return
+    try {
+      await api.delete(`/students/${s._id}`, { params: force ? { force:1 } : {} })
+      show('Removed.'); load()
+    } catch (e) {
+      const d = e.response?.data
+      // The server refuses to delete a student who carries marks or top-3 history.
+      if (e.response?.status === 409 && d?.needsForce) {
+        if (user?.role === 'superadmin'
+            && confirm(`${d.message}\n\nDelete ${s.name} AND their ${d.markCount} mark record(s) permanently?`)) {
+          return remove(s, true)
+        }
+        return show(d.message, 'error')
+      }
+      show(d?.message || 'Failed', 'error')
+    }
   }
+
+  const q = query.trim().toLowerCase()
+  const shown = q
+    ? students.filter(s => [s.roll, s.name, s.course, s.sem, s.section]
+        .some(v => String(v || '').toLowerCase().includes(q)))
+    : students
+
+  const cellInput = { ...ui.input, padding:'5px 8px', fontSize:12 }
 
   return (
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
-        <p style={ui.sub}>{students.length} students</p>
+        <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+          <p style={ui.sub}>{q ? `${shown.length} of ${students.length}` : `${students.length}`} students</p>
+          <input style={{ ...ui.input, width:220 }} placeholder="Search name / roll / section…"
+            value={query} onChange={e=>setQuery(e.target.value)} />
+        </div>
         {canEdit && <div style={{ display:'flex', gap:8 }}>
           <button style={ui.btnGhost} onClick={()=>{ setShowAdd(v=>!v); setShowImport(false) }}>+ Add student</button>
           <button style={ui.btnGold} onClick={()=>{ setShowImport(v=>!v); setShowAdd(false) }}>Bulk import</button>
@@ -373,32 +438,97 @@ function RosterTab({ batchId, user, show, canEdit }) {
             <button style={ui.btnGhost} onClick={downloadTemplate}>Download template (.csv)</button>
           </div>
           <textarea style={{ ...ui.input, minHeight:150, fontFamily:'var(--font-m)', resize:'vertical' }}
-            value={paste} onChange={e=>setPaste(e.target.value)}
+            value={paste} onChange={e=>{ setPaste(e.target.value); setPreview(null) }}
             placeholder={"Roll, Name, Course, Semester, Section\nBCA2024001, Aman Kumar, BCA, 3rd, A\nBCA2024002, Priya Singh, BCA, 3rd, A"} />
-          <div style={{ display:'flex', gap:10, marginTop:12 }}>
-            <button style={ui.btn} disabled={importing} onClick={doImport}>{importing?'Importing…':`Import ${parseRows(paste).length} students`}</button>
-            <button style={ui.btnGhost} onClick={()=>setShowImport(false)}>Cancel</button>
+
+          {preview && (
+            <div style={{ marginTop:12, padding:'12px 14px', borderRadius:9,
+                          background:'rgba(37,99,235,0.10)', border:'1px solid rgba(37,99,235,0.30)', fontSize:13 }}>
+              <b>{preview.willImport} student(s) will be added.</b>
+              {preview.skippedCount > 0 && (
+                <div style={{ marginTop:8 }}>
+                  <span style={{ color:'var(--gold)' }}>{preview.skippedCount} row(s) will be skipped:</span>
+                  <ul style={{ margin:'6px 0 0', paddingLeft:18, color:'var(--muted)' }}>
+                    {preview.skipped.slice(0,10).map((s,i) => (
+                      <li key={i}>Line {s.line}: {s.roll || '(no roll)'} {s.name ? `· ${s.name}` : ''} — {s.reason}</li>
+                    ))}
+                    {preview.skipped.length > 10 && <li>…and {preview.skipped.length - 10} more</li>}
+                  </ul>
+                </div>
+              )}
+              {preview.duplicateCount > 0 && (
+                <div style={{ marginTop:8, color:'var(--gold)' }}>
+                  {preview.duplicateCount} of them are also in another batch — they'll import and be flagged.
+                </div>
+              )}
+              {preview.sample?.length > 0 && (
+                <div style={{ marginTop:8, color:'var(--muted)' }}>
+                  First row reads as: <b style={{ color:'#fff' }}>{preview.sample[0].name}</b>
+                  {preview.sample[0].roll ? ` · roll ${preview.sample[0].roll}` : ' · no roll'}
+                  {preview.sample[0].section ? ` · section ${preview.sample[0].section}` : ''}
+                  {' '}— if that looks wrong, your columns are in a different order.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ display:'flex', gap:10, marginTop:12, flexWrap:'wrap' }}>
+            <button style={ui.btnGhost} disabled={checking} onClick={checkImport}>
+              {checking ? 'Checking…' : `Check ${parseRows(paste).length} rows`}
+            </button>
+            <button style={ui.btn} disabled={importing || !preview} onClick={doImport}
+              title={preview ? '' : 'Run the check first'}>
+              {importing ? 'Importing…' : preview ? `Import ${preview.willImport} students` : 'Import'}
+            </button>
+            <button style={ui.btnGhost} onClick={()=>{ setShowImport(false); setPreview(null) }}>Cancel</button>
           </div>
         </div>
-      )}
       )}
 
       {loading ? <div style={{ color:'var(--muted)' }}>Loading…</div>
         : students.length === 0 ? <Empty icon="👥" title="No students yet" hint="Use bulk import to add the batch roster." />
+        : shown.length === 0 ? <Empty icon="🔍" title="No match" hint={`Nothing matches "${query}".`} />
         : (
           <div style={{ ...ui.card, padding:0, overflow:'hidden' }}>
             <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:640 }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:900 }}>
                 <thead><tr>
                   <th style={ui.th}>Roll</th><th style={ui.th}>Name</th>
+                  <th style={ui.th}>Course</th><th style={ui.th}>Sem</th><th style={ui.th}>Sec</th>
                   <th style={ui.th}>Attendance</th><th style={ui.th}>Top-3</th><th style={ui.th}>Projects</th>
-                  <th style={ui.th}>Flag</th><th style={ui.th}></th>
+                  <th style={ui.th}></th>
                 </tr></thead>
                 <tbody>
-                  {students.map(s => (
+                  {shown.map(s => editingId === s._id ? (
+                    <tr key={s._id} style={{ background:'rgba(37,99,235,0.08)' }}>
+                      <td style={ui.td}><input style={{ ...cellInput, width:120 }} value={editForm.roll}
+                        onChange={e=>setEditForm({...editForm,roll:e.target.value})} placeholder="roll" /></td>
+                      <td style={ui.td}><input style={{ ...cellInput, width:170 }} value={editForm.name}
+                        onChange={e=>setEditForm({...editForm,name:e.target.value})} placeholder="name" /></td>
+                      <td style={ui.td}><input style={{ ...cellInput, width:110 }} value={editForm.course}
+                        onChange={e=>setEditForm({...editForm,course:e.target.value})} placeholder="BCA" /></td>
+                      <td style={ui.td}><input style={{ ...cellInput, width:60 }} value={editForm.sem}
+                        onChange={e=>setEditForm({...editForm,sem:e.target.value})} placeholder="3rd" /></td>
+                      <td style={ui.td}><input style={{ ...cellInput, width:50 }} value={editForm.section}
+                        onChange={e=>setEditForm({...editForm,section:e.target.value})} placeholder="A" /></td>
+                      <td style={ui.td} colSpan={3}>
+                        <span style={{ ...ui.sub, fontSize:12 }}>Editing — attendance and history are kept.</span>
+                      </td>
+                      <td style={ui.td}>
+                        <div style={{ display:'flex', gap:6 }}>
+                          <button style={{ ...ui.btn, padding:'6px 12px', fontSize:12 }} disabled={savingEdit}
+                            onClick={()=>saveEdit(s)}>{savingEdit?'Saving…':'Save'}</button>
+                          <button style={ui.btnGhost} onClick={()=>setEditingId(null)}>Cancel</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
                     <tr key={s._id}>
                       <td style={{ ...ui.td, color:'var(--muted)' }}>{s.roll||'—'}</td>
                       <td style={{ ...ui.td, fontWeight:600 }}>{s.name} {s.flagged && <span title="Flagged">⭐</span>}</td>
+                      <td style={{ ...ui.td, color:'var(--muted)' }}>{s.course||'—'}</td>
+                      <td style={{ ...ui.td, color:'var(--muted)' }}>{s.sem||'—'}</td>
+                      <td style={{ ...ui.td, color:'var(--muted)' }}>{s.section||'—'}</td>
                       <td style={ui.td}>
                         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                           <Bar pct={s.attendancePct} /><span style={{ fontSize:12, color:'var(--muted)' }}>{s.attendancePct}%</span>
@@ -407,10 +537,11 @@ function RosterTab({ batchId, user, show, canEdit }) {
                       <td style={ui.td}>{s.stats?.topperCount||0}</td>
                       <td style={ui.td}>{s.stats?.projectCount||0}</td>
                       <td style={ui.td}>
-                        {canEdit && <button style={ui.btnGhost} onClick={()=>toggleFlag(s)}>{s.flagged?'Unflag':'Flag'}</button>}
-                      </td>
-                      <td style={ui.td}>
-                        {canEdit && user?.role!=='cotrainer' && <button style={ui.btnDanger} onClick={()=>remove(s)}>Remove</button>}
+                        {canEdit && <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }}>
+                          <button style={ui.btnGhost} onClick={()=>startEdit(s)}>Edit</button>
+                          <button style={ui.btnGhost} onClick={()=>toggleFlag(s)}>{s.flagged?'Unflag':'Flag'}</button>
+                          {user?.role!=='cotrainer' && <button style={ui.btnDanger} onClick={()=>remove(s)}>Remove</button>}
+                        </div>}
                       </td>
                     </tr>
                   ))}
