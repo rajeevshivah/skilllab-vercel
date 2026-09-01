@@ -1,5 +1,8 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
+  /* Tells the browser to paint native UI (select popups, scrollbars, date
+     pickers, autofill) with its dark theme instead of the default white. */
+  color-scheme: dark;
   --navy:    #0A1628;
   --royal:   #1565C0;
   --blue:    #2563EB;
@@ -25,4 +28,18 @@
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-b); background: var(--navy); color: #fff; min-height: 100vh; overflow-x: hidden; }
 input, select, textarea, button { font-family: inherit; }
+
+/* Dropdown list items: the closed <select> sits on the dark page and inherits
+   color:white from ui.input, but the OPEN option list is painted by the OS on a
+   white surface — white-on-white, readable only under the hover highlight.
+   Force an opaque dark background + light text on the options themselves. */
+select { color: #fff; }
+select option,
+select optgroup {
+  background-color: #0F2033;
+  color: #fff;
+}
+/* Placeholder-style first option ("— select —") stays dimmed but visible. */
+select option[value=""] { color: #94A3B8; }
+
 a { text-decoration: none; color: inherit; }
