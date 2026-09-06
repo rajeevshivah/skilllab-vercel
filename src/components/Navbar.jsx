@@ -20,6 +20,11 @@ export default function Navbar() {
   const handleLogout = () => { logout(); nav('/') }
   const is = (p) => loc.pathname === p
 
+  // The public Hall of Fame carries its own header. A visitor who is not
+  // signed in should never see internal tool chrome — they reach the login
+  // screen from the "Staff login" link in that page's masthead.
+  if (!user && (is('/') || is('/login'))) return null
+
   return (
     <nav style={S.nav}>
       <div style={S.inner}>
