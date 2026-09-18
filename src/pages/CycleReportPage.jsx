@@ -4,6 +4,29 @@ import api from '../api'
 import { useAuth } from '../context/AuthContext'
 import { ui, Alert } from '../components/ui'
 
+// Defined outside the page component (not inside its render) so these keep a
+// stable identity across re-renders. When a component is redefined on every
+// render, React treats each render's version as a brand-new component type,
+// unmounts the previous DOM subtree and mounts a fresh one — for an <input>
+// inside it, that means the input is destroyed and recreated on every
+// keystroke, which drops focus and made typing here only accept one
+// character before needing a re-click.
+const Field = ({ label, children }) => (
+  <div><label style={ui.label}>{label}</label>{children}</div>
+)
+const Rating = ({ value, onChange, disabled }) => (
+  <div style={{ display:'flex', gap:6 }}>
+    {[1,2,3,4,5].map(n => (
+      <button key={n} type="button" disabled={disabled}
+        onClick={()=>onChange(n)}
+        style={{ width:36, height:36, borderRadius:8, cursor:disabled?'default':'pointer',
+          background: Number(value)>=n ? 'var(--gold)' : 'rgba(255,255,255,0.06)',
+          color: Number(value)>=n ? '#1a1200' : 'rgba(255,255,255,0.6)',
+          border:'1px solid rgba(255,255,255,0.12)', fontWeight:700 }}>{n}</button>
+    ))}
+  </div>
+)
+
 export default function CycleReportPage() {
   const { id } = useParams()
   const { user } = useAuth()
@@ -143,21 +166,6 @@ export default function CycleReportPage() {
   }
 
   const cLabel = `Cycle ${cycle.number}${cycle.name ? ` · ${cycle.name}` : ''}`
-  const Field = ({ label, children }) => (
-    <div><label style={ui.label}>{label}</label>{children}</div>
-  )
-  const Rating = ({ value, onChange }) => (
-    <div style={{ display:'flex', gap:6 }}>
-      {[1,2,3,4,5].map(n => (
-        <button key={n} type="button" disabled={!canFill}
-          onClick={()=>onChange(n)}
-          style={{ width:36, height:36, borderRadius:8, cursor:canFill?'pointer':'default',
-            background: Number(value)>=n ? 'var(--gold)' : 'rgba(255,255,255,0.06)',
-            color: Number(value)>=n ? '#1a1200' : 'rgba(255,255,255,0.6)',
-            border:'1px solid rgba(255,255,255,0.12)', fontWeight:700 }}>{n}</button>
-      ))}
-    </div>
-  )
 
   return (
     <div style={ui.wrap}>
@@ -211,8 +219,8 @@ export default function CycleReportPage() {
             <Field label="Total students"><input style={ui.input} type="number" value={form.totalStudents} onChange={e=>set('totalStudents',e.target.value)} /></Field>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:14, marginTop:14 }}>
-            <Field label="Overall batch performance (1–5)"><Rating value={form.performanceRating} onChange={v=>set('performanceRating',v)} /></Field>
-            <Field label="Your confidence with this topic (1–5)"><Rating value={form.trainerConfidence} onChange={v=>set('trainerConfidence',v)} /></Field>
+            <Field label="Overall batch performance (1–5)"><Rating value={form.performanceRating} onChange={v=>set('performanceRating',v)} disabled={!canFill} /></Field>
+            <Field label="Your confidence with this topic (1–5)"><Rating value={form.trainerConfidence} onChange={v=>set('trainerConfidence',v)} disabled={!canFill} /></Field>
           </div>
         </div>
 
