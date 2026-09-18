@@ -17,7 +17,7 @@ import Navbar        from './components/Navbar'
 
 function Protected({ children, admin }) {
   const { user, loading } = useAuth()
-  if (loading) return <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'rgba(255,255,255,0.4)' }}>Loading…</div>
+  if (loading) return <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'var(--ink-soft)' }}>Loading…</div>
   if (!user) return <Navigate to="/login" replace />
   if (admin && user.role !== 'superadmin') return <Navigate to="/dashboard" replace />
   return children

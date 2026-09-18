@@ -1,8 +1,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 :root {
-  /* Tells the browser to paint native UI (select popups, scrollbars, date
-     pickers, autofill) with its dark theme instead of the default white. */
-  color-scheme: dark;
+  color-scheme: light;
+
+  /* ── legacy tokens — kept for pages not yet migrated to the Register
+     design (Batches, Cycles, Cycle report/plan, Placement, Users,
+     Duplicates, Semesters). Retire page-by-page; see .legacy-dark below. */
   --navy:    #0A1628;
   --royal:   #1565C0;
   --blue:    #2563EB;
@@ -24,22 +27,266 @@
   --stream-mern: #7C3AED;
   --stream-java: #065F46;
   --stream-c:    #9A3412;
+
+  /* ── Register — internal tool tokens (design-direction.md §3.1) ── */
+  --page:         #F4F6F5;
+  --sheet:        #FFFFFF;
+  --ink:          #1B2422;
+  --ink-soft:     #56625E;
+  --rule:         #D7DDDA;
+  --rule-strong:  #B9C2BE;
+  --blue-ink:     #1E4DB7;
+  --blue-wash:    #E8EEFB;
+  --red-ink:      #B8322A;
+  --red-wash:     #FBEAE8;
+  --tick:         #2C7A4B;
+  --tick-wash:    #E6F2EA;
+  --pencil:       #9A6B12;
+  --pencil-wash:  #FBF1DE;
+
+  --track-aiml: #3B5BA9;
+  --track-mern: #7A4FA3;
+  --track-java: #2E6E5E;
+  --track-c:    #A04F2A;
+
+  /* ── Honours Board — public Hall of Fame tokens (§3.2) ── */
+  --teak:      #2A1B13;
+  --teak-2:    #352318;
+  --grain:     #4A3325;
+  --gold-leaf: #D4AF5A;
+  --gold-dim:  #9C8248;
+  --chalk:     #EDE6DA;
+  --chalk-dim: #B8AE9F;
+
+  /* ── Type (§3.3) ── */
+  --font-ui:    'Atkinson Hyperlegible Next', 'Segoe UI', system-ui, sans-serif;
+  --font-data:  'Atkinson Hyperlegible Mono', 'Consolas', ui-monospace, monospace;
+  --font-board: 'Tiro Devanagari Hindi', 'Georgia', 'Times New Roman', serif;
+
+  --shadow-float: 0 8px 24px rgba(27,36,34,0.12), 0 1px 2px rgba(27,36,34,0.08);
 }
+
 html { scroll-behavior: smooth; }
-body { font-family: var(--font-b); background: var(--navy); color: #fff; min-height: 100vh; overflow-x: hidden; }
-input, select, textarea, button { font-family: inherit; }
-
-/* Dropdown list items: the closed <select> sits on the dark page and inherits
-   color:white from ui.input, but the OPEN option list is painted by the OS on a
-   white surface — white-on-white, readable only under the hover highlight.
-   Force an opaque dark background + light text on the options themselves. */
-select { color: #fff; }
-select option,
-select optgroup {
-  background-color: #0F2033;
-  color: #fff;
+body {
+  font-family: var(--font-ui);
+  background: var(--page);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
 }
-/* Placeholder-style first option ("— select —") stays dimmed but visible. */
-select option[value=""] { color: #94A3B8; }
-
+input, select, textarea, button { font-family: inherit; }
 a { text-decoration: none; color: inherit; }
+:focus-visible { outline: 2px solid var(--blue-ink); outline-offset: 2px; }
+button { -webkit-tap-highlight-color: transparent; }
+
+/* ── legacy dark-navy pages ───────────────────────────────────────────
+   Batches, Cycles, Cycle report/plan, Placement, Users, Duplicates and
+   Semesters still render with the original ui.jsx inline-style tokens
+   (dark closed-select text on a dark translucent field). ui.jsx's
+   `wrap` now sets its own dark background/color directly, so those
+   pages keep looking exactly as before no matter what the new light
+   body default below is — this block just keeps their <select> option
+   lists legible, same fix as the original file, kept global since every
+   not-yet-migrated page still relies on it. New Register selects below
+   opt back into light. Delete this once every page is migrated. */
+select { color: #fff; }
+select option, select optgroup { background-color: #0F2033; color: #fff; }
+select option[value=""] { color: #94A3B8; }
+.field select, select.ctl { color: var(--ink); }
+.field select option, select.ctl option,
+.field select optgroup, select.ctl optgroup { background-color: var(--sheet); color: var(--ink); }
+
+/* ══════════════════════════════════════════════════════════════════
+   Register — shared components for the migrated (light) screens
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Buttons — verbs, not icons. At most one .btn--primary visible per view. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 36px; padding: 0 16px; border-radius: 6px; border: 1px solid transparent;
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700; line-height: 1;
+  cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s, opacity .15s;
+}
+.btn:disabled { opacity: .55; cursor: default; }
+.btn--primary   { background: var(--blue-ink); color: #fff; }
+.btn--primary:hover:not(:disabled)   { background: #1a3f96; }
+.btn--secondary { background: var(--sheet); color: var(--ink); border-color: var(--rule-strong); }
+.btn--secondary:hover:not(:disabled) { border-color: var(--ink-soft); }
+.btn--quiet     { background: none; color: var(--blue-ink); height: auto; padding: 2px; font-weight: 600; }
+.btn--quiet:hover:not(:disabled)     { text-decoration: underline; }
+.btn--danger    { background: var(--sheet); color: var(--red-ink); border-color: var(--red-ink); }
+.btn--danger:hover:not(:disabled)    { background: var(--red-wash); }
+.btn--danger--confirm { background: var(--red-ink); color: #fff; border-color: var(--red-ink); }
+.btn--sm { height: 30px; padding: 0 12px; font-size: 13px; }
+
+/* Status tags — always a word, colour is never the only signal. */
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 4px; font-size: 12.5px; font-weight: 700; line-height: 1.4;
+  white-space: nowrap;
+}
+.tag--tick    { background: var(--tick-wash);   color: var(--tick); }
+.tag--red     { background: var(--red-wash);    color: var(--red-ink); }
+.tag--pencil  { background: var(--pencil-wash); color: var(--pencil); }
+.tag--muted   { background: var(--page);        color: var(--ink-soft); border: 1px solid var(--rule); }
+.tag--blue    { background: var(--blue-wash);   color: var(--blue-ink); }
+
+/* Tables — the hero component of the internal tool. */
+.table-wrap { overflow-x: auto; background: var(--sheet); }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table thead th {
+  position: sticky; top: 0; background: var(--sheet); z-index: 1;
+  text-align: left; font-size: 13px; font-weight: 700; color: var(--ink-soft);
+  padding: 10px 14px; border-bottom: 2px solid var(--rule-strong); white-space: nowrap;
+}
+.table td {
+  padding: 12px 14px; border-bottom: 1px solid var(--rule); vertical-align: middle; color: var(--ink);
+}
+.table tbody tr:hover td { background: rgba(30,77,183,0.03); }
+.table--compact td, .table--compact th { padding: 7px 12px; }
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.table .data { font-family: var(--font-data); }
+.table tr.is-flagged td:first-child { box-shadow: inset 3px 0 0 var(--red-ink); }
+
+@media (max-width: 720px) {
+  .table--stack thead { display: none; }
+  .table--stack, .table--stack tbody, .table--stack tr, .table--stack td { display: block; width: 100%; }
+  .table--stack tr { border-bottom: 1px solid var(--rule); padding: 10px 0; }
+  .table--stack td { border: none; padding: 3px 0; }
+  .table--stack td::before { content: attr(data-label); display: block; font-size: 11px; color: var(--ink-soft); font-weight: 700; }
+}
+
+/* Progress — "12 of 20 topics" as text, a thin bar as a glance aid. */
+.progress-line { display: flex; align-items: center; gap: 8px; }
+.progress-line .count { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.progress-bar { flex: 1; min-width: 48px; height: 4px; border-radius: 2px; background: var(--rule); overflow: hidden; }
+.progress-bar > span { display: block; height: 100%; background: var(--ink-soft); border-radius: 2px; }
+.progress-bar.is-behind > span { background: var(--red-ink); }
+
+/* Forms */
+.field { display: block; }
+.field + .field { margin-top: 14px; }
+.field label, label.field-label {
+  display: block; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 6px;
+}
+.field input[type="text"], .field input[type="email"], .field input[type="password"],
+.field input[type="number"], .field input[type="date"], .field input[type="time"],
+.field select, .field textarea, input.ctl, select.ctl, textarea.ctl {
+  width: 100%; height: 40px; background: var(--sheet); color: var(--ink);
+  border: 1px solid var(--rule-strong); border-radius: 6px; padding: 0 12px;
+  font-family: var(--font-ui); font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.field textarea, textarea.ctl { height: auto; min-height: 80px; padding: 10px 12px; resize: vertical; }
+.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible,
+input.ctl:focus-visible, select.ctl:focus-visible, textarea.ctl:focus-visible {
+  border-color: var(--blue-ink); box-shadow: 0 0 0 2px rgba(30,77,183,0.18); outline: none;
+}
+.ctl--invalid, .ctl--invalid:focus-visible { border-color: var(--red-ink); box-shadow: 0 0 0 2px rgba(184,50,42,0.16); }
+.field-error { margin-top: 6px; font-size: 13px; color: var(--red-ink); }
+.field-hint  { margin-top: 6px; font-size: 13px; color: var(--ink-soft); }
+
+/* Sheet — a floating layer: dialogs, side sheets. The one place shadow + 10px radius appear. */
+.sheet { background: var(--sheet); border-radius: 10px; box-shadow: var(--shadow-float); border: 1px solid var(--rule); }
+.sheet-overlay {
+  position: fixed; inset: 0; background: rgba(27,36,34,0.32); z-index: 300;
+  display: flex; justify-content: flex-end;
+}
+.sheet-panel {
+  width: min(480px, 100vw); height: 100vh; background: var(--sheet); box-shadow: var(--shadow-float);
+  overflow-y: auto; animation: sheet-in .18s ease-out;
+}
+@keyframes sheet-in { from { transform: translateX(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+
+/* Empty states — no emoji, no faded icon */
+.empty { padding: 56px 8px; max-width: 46ch; }
+.empty h2 { font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.empty p { font-size: 14px; line-height: 1.6; color: var(--ink-soft); margin-bottom: 14px; }
+
+/* Alert banner */
+.banner { padding: 10px 14px; border-radius: 6px; font-size: 13.5px; margin-bottom: 16px; border: 1px solid transparent; }
+.banner--success { background: var(--tick-wash); color: var(--tick); border-color: rgba(44,122,75,0.25); }
+.banner--error   { background: var(--red-wash);  color: var(--red-ink); border-color: rgba(184,50,42,0.25); }
+.banner--pencil  { background: var(--pencil-wash); color: var(--pencil); border-color: rgba(154,107,18,0.3); }
+
+/* Page scaffolding */
+.page { max-width: 1100px; margin: 0 auto; padding: 28px 24px 80px; }
+.page-title { font-size: 24px; line-height: 30px; font-weight: 700; color: var(--ink); }
+.section-title { font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.muted { color: var(--ink-soft); }
+
+/* Text tabs (Batch page, etc.) — underline, not boxed. */
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--rule); }
+.tabs button {
+  background: none; border: none; cursor: pointer; padding: 10px 4px; margin-right: 20px;
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700; color: var(--ink-soft);
+  border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+}
+.tabs button.is-active { color: var(--ink); border-bottom-color: var(--blue-ink); }
+.tabs button:hover:not(.is-active) { color: var(--ink); }
+
+/* ══════════════════════════════════════════════════════════════════
+   Navbar — the Register top bar (design-direction.md §4 Navigation)
+   ══════════════════════════════════════════════════════════════════ */
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--sheet); border-bottom: 1px solid var(--rule);
+}
+.nav-inner {
+  max-width: 1200px; margin: 0 auto; padding: 0 20px; height: 56px;
+  display: flex; align-items: center; gap: 24px;
+}
+.nav-mark { font-size: 16px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.nav-tabs { display: flex; align-items: center; gap: 4px; height: 56px; flex: 1; min-width: 0; }
+.nav-tabs a, .nav-tabs button.nav-tab {
+  display: flex; align-items: center; height: 56px; padding: 0 2px; margin-right: 22px;
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700; color: var(--ink-soft);
+  border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none;
+  cursor: pointer; white-space: nowrap; position: relative;
+}
+.nav-tabs a.is-active, .nav-tabs button.nav-tab.is-active { color: var(--ink); border-bottom-color: var(--blue-ink); }
+.nav-tabs a:hover, .nav-tabs button.nav-tab:hover { color: var(--ink); }
+.nav-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.nav-menu-btn {
+  display: none; background: none; border: 1px solid var(--rule-strong); border-radius: 6px;
+  height: 34px; padding: 0 10px; font-size: 13px; font-weight: 700; color: var(--ink); cursor: pointer;
+}
+
+.dropdown { position: relative; }
+.dropdown-panel {
+  position: absolute; top: calc(100% + 8px); right: 0; min-width: 190px;
+  background: var(--sheet); border-radius: 10px; box-shadow: var(--shadow-float); border: 1px solid var(--rule);
+  padding: 6px; z-index: 210;
+}
+.dropdown-panel.align-left { right: auto; left: 0; }
+.dropdown-panel a, .dropdown-panel button {
+  display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  padding: 9px 10px; border-radius: 6px; font-family: var(--font-ui); font-size: 13.5px; font-weight: 600; color: var(--ink);
+}
+.dropdown-panel a:hover, .dropdown-panel button:hover { background: var(--page); }
+.dropdown-panel a.is-active { color: var(--blue-ink); }
+.dropdown-sep { height: 1px; background: var(--rule); margin: 6px 2px; }
+.dropdown-label { padding: 6px 10px 2px; font-size: 12px; color: var(--ink-soft); }
+
+.account-trigger {
+  display: flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer;
+  padding: 4px 6px; border-radius: 6px; font-family: var(--font-ui);
+}
+.account-trigger:hover { background: var(--page); }
+.account-name { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.account-chevron { color: var(--ink-soft); font-size: 10px; }
+
+@media (max-width: 900px) {
+  .nav-tabs { display: none; }
+  .nav-menu-btn { display: inline-flex; align-items: center; }
+  .nav-mobile-panel {
+    display: flex; flex-direction: column; padding: 8px 20px 14px; border-top: 1px solid var(--rule);
+    background: var(--sheet);
+  }
+  .nav-mobile-panel a, .nav-mobile-panel button.nav-tab {
+    height: auto; padding: 10px 0; margin-right: 0; border-bottom: 1px solid var(--rule); justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

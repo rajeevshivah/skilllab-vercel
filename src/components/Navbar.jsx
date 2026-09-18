@@ -1,54 +1,117 @@
+import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import GlobalSearch from './GlobalSearch'
 
-const S = {
-  nav: { position:'sticky',top:0,zIndex:100,background:'rgba(10,22,40,0.92)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(255,255,255,0.07)' },
-  inner: { maxWidth:1100,margin:'0 auto',padding:'0 24px',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap' },
-  logo: { fontFamily:'var(--font-d)',fontSize:18,fontWeight:900,color:'var(--gold)',padding:'14px 0' },
-  tabs: { display:'flex',flexWrap:'wrap' },
-  tab: (active) => ({ padding:'14px 14px',background:'none',border:'none',borderBottom:`2px solid ${active?'var(--gold)':'transparent'}`,color:active?'var(--gold)':'rgba(255,255,255,0.45)',fontSize:13,fontWeight:500,cursor:'pointer',transition:'all 0.2s' }),
-  right: { display:'flex',alignItems:'center',gap:12 },
-  user: { fontSize:12,color:'rgba(255,255,255,0.45)' },
-  logout: { padding:'6px 14px',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,color:'rgba(255,255,255,0.7)',fontSize:12,cursor:'pointer' },
-}
+const ADMIN_PATHS = ['/semesters', '/users', '/duplicates']
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const loc = useLocation()
   const nav = useNavigate()
-  const handleLogout = () => { logout(); nav('/') }
-  const is = (p) => loc.pathname === p
+  const [adminOpen, setAdminOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const adminRef = useRef(null)
+  const accountRef = useRef(null)
 
-  // The public Hall of Fame carries its own header. A visitor who is not
-  // signed in should never see internal tool chrome — they reach the login
-  // screen from the "Staff login" link in that page's masthead.
-  if (!user && (is('/') || is('/login'))) return null
+  const is = (p) => loc.pathname === p
+  const isAdminSection = ADMIN_PATHS.includes(loc.pathname)
+  const handleLogout = () => { logout(); setAccountOpen(false); nav('/') }
+
+  useEffect(() => {
+    function onClick(e) {
+      if (adminRef.current && !adminRef.current.contains(e.target)) setAdminOpen(false)
+      if (accountRef.current && !accountRef.current.contains(e.target)) setAccountOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  // Close the mobile panel on route change.
+  useEffect(() => { setMobileOpen(false) }, [loc.pathname])
+
+  // The public Hall of Fame carries its own dark masthead and never shows
+  // this bar (design-direction.md §4) — even for a signed-in trainer just
+  // browsing it, since this light bar would sit on top of the honours
+  // board's dark theme. Same for the login screen, which has its own
+  // "View the Hall of Fame" link back out.
+  if (is('/') || is('/login')) return null
+
+  const tabs = (
+    <>
+      <Link to="/dashboard" className={is('/dashboard') ? 'is-active' : ''}>Today</Link>
+      <Link to="/batches" className={is('/batches') || loc.pathname.startsWith('/batch/') ? 'is-active' : ''}>Batches</Link>
+      <Link to="/cycles" className={is('/cycles') || loc.pathname.startsWith('/cycle/') ? 'is-active' : ''}>Cycles</Link>
+      <Link to="/placement" className={is('/placement') ? 'is-active' : ''}>Placement</Link>
+      {user?.role === 'superadmin' && (
+        <div className="dropdown" ref={adminRef} style={{ display: 'inline-block' }}>
+          <button
+            type="button"
+            className={`nav-tab${isAdminSection ? ' is-active' : ''}`}
+            onClick={() => setAdminOpen(v => !v)}
+            aria-haspopup="true" aria-expanded={adminOpen}
+          >
+            Admin ▾
+          </button>
+          {adminOpen && (
+            <div className="dropdown-panel align-left">
+              <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Semesters</Link>
+              <Link to="/users" className={is('/users') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Users</Link>
+              <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Duplicates</Link>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
 
   return (
-    <nav style={S.nav}>
-      <div style={S.inner}>
-        <Link to="/" style={S.logo}>⚡ SkillLab</Link>
-        <div style={S.tabs}>
-          <Link to="/"><button style={S.tab(is('/'))}>🏆 Hall of Fame</button></Link>
-          {user && <Link to="/dashboard"><button style={S.tab(is('/dashboard'))}>📊 Dashboard</button></Link>}
-          {user && <Link to="/batches"><button style={S.tab(is('/batches')||loc.pathname.startsWith('/batch/'))}>🗂️ Batches</button></Link>}
-          {user && <Link to="/placement"><button style={S.tab(is('/placement'))}>🎯 Placement</button></Link>}
-          {user && <Link to="/cycles"><button style={S.tab(is('/cycles')||loc.pathname.startsWith('/cycle/'))}>🔄 Cycles</button></Link>}
-          {user?.role==='superadmin' && <Link to="/semesters"><button style={S.tab(is('/semesters'))}>📚 Semesters</button></Link>}
-          {user?.role==='superadmin' && <Link to="/duplicates"><button style={S.tab(is('/duplicates'))}>🔀 Duplicates</button></Link>}
-          {user?.role==='superadmin' && <Link to="/users"><button style={S.tab(is('/users'))}>👥 Users</button></Link>}
-        </div>
-        <div style={S.right}>
+    <nav className="nav">
+      <div className="nav-inner">
+        <Link to="/dashboard" className="nav-mark">SHEAT Skill Lab</Link>
+
+        <div className="nav-tabs">{tabs}</div>
+
+        <button className="nav-menu-btn" onClick={() => setMobileOpen(v => !v)} aria-label="Menu" aria-expanded={mobileOpen}>
+          Menu
+        </button>
+
+        <div className="nav-right">
           {user && <GlobalSearch />}
+
           {user ? (
-            <>
-              <span style={S.user}>{user.name} · <span style={{ textTransform:'capitalize', color:'var(--gold)' }}>{user.role}</span></span>
-              <button style={S.logout} onClick={handleLogout}>Logout</button>
-            </>
-          ) : <Link to="/login"><button style={S.logout}>Login</button></Link>}
+            <div className="dropdown" ref={accountRef}>
+              <button className="account-trigger" onClick={() => setAccountOpen(v => !v)} aria-haspopup="true" aria-expanded={accountOpen}>
+                <span className="account-name">{user.name}</span>
+                <span className="account-chevron">▾</span>
+              </button>
+              {accountOpen && (
+                <div className="dropdown-panel">
+                  <div className="dropdown-label" style={{ textTransform: 'capitalize' }}>{user.role}</div>
+                  <div className="dropdown-sep" />
+                  <button onClick={handleLogout}>Log out</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link to="/login"><button className="btn btn--secondary btn--sm">Sign in</button></Link>
+          )}
         </div>
       </div>
+
+      {mobileOpen && (
+        <div className="nav-mobile-panel">
+          {tabs}
+          {user?.role === 'superadmin' && (
+            <>
+              <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''}>Semesters</Link>
+              <Link to="/users" className={is('/users') ? 'is-active' : ''}>Users</Link>
+              <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''}>Duplicates</Link>
+            </>
+          )}
+        </div>
+      )}
     </nav>
   )
 }

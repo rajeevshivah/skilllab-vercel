@@ -1,5 +1,18 @@
-// Shared style tokens + tiny presentational helpers, matching the existing dark-navy theme.
+// Shared style tokens + tiny presentational helpers for the pages not yet
+// migrated to the Register design (design-direction.md). Kept byte-for-byte
+// compatible with the original dark-navy theme — the migrated screens
+// (Navbar, LoginPage, DashboardPage, BatchPage, CycleMarksPage, PublicPage)
+// no longer import this file at all; they use the new CSS classes in
+// index.css directly. Retire this file page-by-page as each remaining page
+// (Batches, Cycles, Cycle report/plan, Placement, Users, Duplicates,
+// Semesters) gets its own pass.
 export const ui = {
+  // `wrap` now sets its own background/color explicitly, since index.css's
+  // body default changed from dark navy to the new light Register page —
+  // without this, every page below would render pale ink-dark text/cards
+  // meant for a dark body onto a light one. Everything else here is
+  // unchanged from before.
+  wrap:    { maxWidth:1100, margin:'0 auto', padding:'28px 24px 80px', background:'var(--navy)', color:'#fff', minHeight:'100vh' },
   card:    { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:16, padding:24 },
   cardSm:  { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:12, padding:16 },
   input:   { width:'100%', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'white', padding:'9px 12px', borderRadius:8, fontSize:13, outline:'none' },
@@ -11,7 +24,6 @@ export const ui = {
   h1:      { fontFamily:'var(--font-d)', fontSize:28, fontWeight:900, marginBottom:4 },
   h2:      { fontFamily:'var(--font-d)', fontSize:20, fontWeight:700, marginBottom:12 },
   sub:     { color:'var(--muted)', fontSize:13 },
-  wrap:    { maxWidth:1100, margin:'0 auto', padding:'28px 24px 80px' },
   pill:    (bg,fg) => ({ display:'inline-block', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:bg, color:fg }),
   th:      { textAlign:'left', padding:'10px 12px', fontSize:11, letterSpacing:'0.06em', textTransform:'uppercase', color:'var(--muted)', borderBottom:'1px solid rgba(255,255,255,0.09)', fontWeight:600 },
   td:      { padding:'10px 12px', fontSize:13, borderBottom:'1px solid rgba(255,255,255,0.05)' },

@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+
+const DEFAULT_ERROR = "That email and password don't match. Check for typos, or ask the Skill Lab coordinator to reset your password."
 
 export default function LoginPage() {
   const [email,    setEmail]    = useState('')
@@ -15,41 +17,39 @@ export default function LoginPage() {
     setError(''); setLoading(true)
     try {
       await login(email, password)
-      navigate('/admin')
+      // Bug fix: this used to send trainers to /admin, which doesn't exist —
+      // the catch-all route then bounced them straight back to the public page.
+      navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed')
+      setError(err.response?.data?.message || DEFAULT_ERROR)
     } finally { setLoading(false) }
   }
 
   return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'80vh',padding:24}}>
-      <div style={{width:'100%',maxWidth:400,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.09)',borderRadius:20,padding:40,textAlign:'center'}}>
-        <div style={{fontSize:42,marginBottom:16}}>🔐</div>
-        <h2 style={{fontFamily:'var(--font-d)',fontSize:26,marginBottom:6}}>Admin Login</h2>
-        <p style={{color:'var(--muted)',fontSize:13,marginBottom:28}}>SHEAT College Skill Lab Portal</p>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--page)', padding: 24 }}>
+      <div className="sheet" style={{ width: '100%', maxWidth: 400, padding: 36 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>Sign in to Skill Lab</h1>
+        <p style={{ fontSize: 14, color: 'var(--ink-soft)', marginBottom: 26 }}>For SHEAT trainers and staff.</p>
 
         <form onSubmit={handleSubmit}>
-          {[
-            { label:'Email', type:'email', val:email, set:setEmail },
-            { label:'Password', type:'password', val:password, set:setPassword },
-          ].map(({ label, type, val, set }) => (
-            <div key={label} style={{marginBottom:16,textAlign:'left'}}>
-              <label style={{display:'block',fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--muted)',marginBottom:6}}>{label}</label>
-              <input type={type} value={val} onChange={e=>set(e.target.value)} required
-                style={{width:'100%',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'white',padding:'10px 14px',borderRadius:10,fontSize:14,outline:'none'}} />
-            </div>
-          ))}
+          <div className="field">
+            <label htmlFor="login-email">Email</label>
+            <input id="login-email" type="email" className="ctl" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+          </div>
+          <div className="field">
+            <label htmlFor="login-password">Password</label>
+            <input id="login-password" type="password" className="ctl" value={password} onChange={e => setPassword(e.target.value)} required />
+          </div>
 
-          {error && <div style={{background:'rgba(220,38,38,0.15)',border:'1px solid rgba(220,38,38,0.3)',color:'#FCA5A5',padding:'10px 14px',borderRadius:8,fontSize:13,marginBottom:16}}>{error}</div>}
+          {error && <div className="banner banner--error" style={{ marginTop: 16 }}>{error}</div>}
 
-          <button type="submit" disabled={loading}
-            style={{width:'100%',padding:'12px 24px',background:'var(--blue)',color:'white',border:'none',borderRadius:10,fontSize:14,fontWeight:600,cursor:'pointer',opacity:loading?0.7:1}}>
-            {loading ? 'Logging in…' : 'Login'}
+          <button type="submit" className="btn btn--primary" disabled={loading} style={{ width: '100%', marginTop: 20 }}>
+            {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <p style={{marginTop:20,fontSize:12,color:'rgba(255,255,255,0.25)'}}>
-          Trainers — ask the Skill Lab admin for your login.
+        <p style={{ marginTop: 22, textAlign: 'center' }}>
+          <Link to="/" className="btn btn--quiet" style={{ fontSize: 13 }}>View the Hall of Fame</Link>
         </p>
       </div>
     </div>

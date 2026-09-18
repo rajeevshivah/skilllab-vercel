@@ -3,218 +3,136 @@ import { Link } from 'react-router-dom'
 import api from '../api'
 
 /* ────────────────────────────────────────────────────────────────
-   Skill Lab — public Hall of Fame
+   Skill Lab — public Hall of Fame ("the Honours Board")
 
-   Self-contained: this page does not use components/ui.jsx, because
-   the public page should not look like the internal tool. All styles
-   live in the <style> block below, scoped under .hof, so we get media
-   queries, :focus-visible and reduced-motion — none of which inline
-   styles can do.
+   Self-contained: doesn't use ui.jsx, doesn't look like the internal
+   tool. Uses the global --teak / --gold-leaf / --chalk tokens from
+   index.css (design-direction.md §3.2) but keeps its own layout rules
+   scoped under .board, since a real honours board is a list of rows,
+   not a card grid.
    ──────────────────────────────────────────────────────────────── */
 
 const CSS = `
-.hof {
-  --ink:      #0A1628;
-  --ink-2:    #0E1E36;
-  --ink-3:    #132743;
-  --line:     rgba(255,255,255,0.10);
-  --line-2:   rgba(255,255,255,0.18);
-  --gold:     #F59E0B;
-  --gold-lit: #FCD34D;
-  --paper:    #F1F5F9;
-  --quiet:    rgba(226,232,240,0.62);
-  --quieter:  rgba(226,232,240,0.42);
-  --display:  'Playfair Display', Georgia, serif;
-  --body:     'DM Sans', system-ui, sans-serif;
-  --mono:     'DM Mono', ui-monospace, monospace;
-
-  background: var(--ink);
-  color: var(--paper);
-  font-family: var(--body);
+.board {
+  background: var(--teak);
+  color: var(--chalk);
+  font-family: var(--font-ui);
   min-height: 100vh;
+  position: relative;
 }
-.hof-shell { max-width: 1080px; margin: 0 auto; padding: 0 24px 96px; }
+/* A very faint wood-grain texture — invisible up close, felt from a distance. */
+.board::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: repeating-linear-gradient(178deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);
+}
+.board-shell { max-width: 880px; margin: 0 auto; padding: 0 24px 100px; position: relative; z-index: 1; }
 
-/* ── masthead ─────────────────────────────────────────────── */
-.hof-top {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; padding: 26px 0 0; flex-wrap: wrap;
-}
-.hof-mark {
-  font-family: var(--display); font-weight: 700; font-size: 15px;
-  letter-spacing: 0.01em; color: var(--paper);
-}
-.hof-mark span { color: var(--gold); }
-.hof-staff {
-  font-size: 13px; color: var(--quieter); border-bottom: 1px solid transparent;
-  padding-bottom: 1px; transition: color .18s, border-color .18s;
-}
-.hof-staff:hover { color: var(--quiet); border-color: var(--line-2); }
+.board-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 26px 0 0; flex-wrap: wrap; }
+.board-mark { font-size: 13px; color: var(--chalk-dim); letter-spacing: 0.01em; }
+.board-staff { font-size: 13px; color: var(--chalk-dim); border-bottom: 1px solid transparent; padding-bottom: 1px; transition: color .18s, border-color .18s; }
+.board-staff:hover { color: var(--chalk); border-color: var(--grain); }
 
-.hof-head { padding: 56px 0 40px; max-width: 40ch; }
-.hof-title {
-  font-family: var(--display); font-weight: 900;
-  font-size: clamp(42px, 8vw, 76px); line-height: 0.98;
-  letter-spacing: -0.02em; margin-bottom: 18px;
+.board-head { padding: 50px 0 8px; text-align: center; }
+.board-title {
+  font-family: var(--font-board); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; font-size: clamp(40px, 7vw, 72px); line-height: 1.05; color: var(--gold-leaf);
 }
-.hof-lede { font-size: 16px; line-height: 1.62; color: var(--quiet); font-weight: 300; }
-.hof-count {
-  margin-top: 20px; font-family: var(--mono); font-size: 12.5px;
-  color: var(--gold); letter-spacing: 0.01em;
+.board-sub { margin-top: 10px; font-size: 15px; color: var(--gold-dim); font-family: var(--font-data); letter-spacing: 0.02em; }
+
+.board-rule { margin: 30px 0; border: none; border-top: 3px double var(--grain); }
+
+.board-lede { max-width: 60ch; margin: 0 auto 30px; text-align: center; font-size: 16px; line-height: 1.65; color: var(--chalk); font-weight: 400; }
+
+.board-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: center; padding: 4px 0 8px; }
+.board-field {
+  appearance: none; background: var(--teak-2); color: var(--chalk);
+  border: 1px solid var(--grain); border-radius: 999px;
+  padding: 8px 16px; font-family: var(--font-ui); font-size: 13.5px; outline: none; transition: border-color .18s;
 }
+.board-field:hover { border-color: var(--gold-dim); }
+.board-field:focus-visible { border-color: var(--gold-leaf); box-shadow: 0 0 0 3px rgba(212,175,90,0.18); }
+select.board-field { cursor: pointer; padding-right: 30px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--chalk-dim) 50%), linear-gradient(135deg, var(--chalk-dim) 50%, transparent 50%);
+  background-position: right 15px center, right 10px center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+select.board-field option { background: var(--teak-2); color: var(--chalk); }
+.board-search { min-width: 220px; }
+.board-matches { font-size: 13px; color: var(--chalk-dim); width: 100%; text-align: center; }
 
-/* ── controls ─────────────────────────────────────────────── */
-.hof-controls {
-  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-  padding: 18px 0 8px; border-top: 1px solid var(--line);
+.board-cycle { margin-top: 54px; }
+.board-cycle-head {
+  display: flex; align-items: baseline; justify-content: center; gap: 12px; flex-wrap: wrap; text-align: center;
+  padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--grain); position: relative;
 }
-.hof-field {
-  appearance: none; background: var(--ink-2); color: var(--paper);
-  border: 1px solid var(--line); border-radius: 999px;
-  padding: 9px 16px; font-family: var(--body); font-size: 13.5px;
-  outline: none; transition: border-color .18s, background .18s;
+.board-cycle-name { font-family: var(--font-board); font-weight: 700; font-size: 21px; color: var(--chalk); }
+.board-cycle-meta { font-size: 13px; color: var(--chalk-dim); font-family: var(--font-data); }
+.board-copy {
+  background: none; border: none; cursor: pointer; color: var(--chalk-dim); font-size: 12px;
+  text-decoration: underline; text-underline-offset: 2px; padding: 2px 4px;
 }
-.hof-field:hover { border-color: var(--line-2); }
-.hof-field:focus-visible { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,158,11,0.2); }
-select.hof-field { padding-right: 34px; cursor: pointer;
-  background-image: linear-gradient(45deg, transparent 50%, var(--quiet) 50%),
-                    linear-gradient(135deg, var(--quiet) 50%, transparent 50%);
-  background-position: right 16px center, right 11px center;
-  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
-select.hof-field option { background: var(--ink-3); color: var(--paper); }
-.hof-search { min-width: 210px; flex: 1 1 210px; max-width: 300px; }
-.hof-matches { font-size: 13px; color: var(--quieter); }
+.board-copy:hover { color: var(--chalk); }
 
-/* ── cycle heading ────────────────────────────────────────── */
-.hof-cycle { margin-top: 46px; }
-.hof-cycle-head {
-  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
-  padding-bottom: 14px; margin-bottom: 22px; border-bottom: 1px solid var(--line);
+.board-row {
+  display: flex; align-items: center; gap: 18px; padding: 16px 4px;
+  border-bottom: 1px solid var(--grain);
 }
-.hof-cycle-name { font-family: var(--display); font-weight: 700; font-size: 23px; letter-spacing: -0.01em; }
-.hof-cycle-meta { font-size: 13px; color: var(--quieter); }
-.hof-cycle-track {
-  font-family: var(--mono); font-size: 11.5px; color: var(--gold);
-  border: 1px solid rgba(245,158,11,0.32); border-radius: 999px; padding: 3px 10px;
+.board-row:last-child { border-bottom: none; }
+.board-rank { font-family: var(--font-board); color: var(--gold-dim); font-weight: 700; flex-shrink: 0; text-align: right; }
+.board-row--1 .board-rank { font-size: 40px; width: 56px; }
+.board-row--rest .board-rank { font-size: 22px; width: 40px; }
+
+.board-photo { border-radius: 4px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--grain); background: var(--teak-2); }
+.board-row--1 .board-photo { width: 72px; height: 72px; }
+.board-row--rest .board-photo { width: 52px; height: 52px; }
+.board-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.board-body { min-width: 0; flex: 1; }
+.board-name { font-family: var(--font-board); color: var(--gold-leaf); letter-spacing: 0.01em; }
+.board-row--1 .board-name { font-size: clamp(26px, 4vw, 40px); text-transform: uppercase; }
+.board-row--rest .board-name { font-size: 20px; text-transform: none; }
+.board-roll { font-family: var(--font-data); font-size: 12.5px; color: var(--chalk-dim); margin-top: 3px; }
+.board-repo {
+  display: inline-block; margin-top: 6px; max-width: 100%; font-family: var(--font-data); font-size: 12.5px;
+  color: var(--chalk-dim); border-bottom: 1px solid transparent; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; transition: color .18s, border-color .18s;
 }
+.board-repo:hover { color: var(--chalk); border-color: var(--chalk-dim); }
 
-/* ── the feature (latest cycle) ───────────────────────────── */
-.hof-feature { display: grid; grid-template-columns: 1.45fr 1fr; gap: 16px; align-items: stretch; }
-.hof-feature.is-solo { grid-template-columns: 1fr; max-width: 620px; }
-.hof-minors { display: grid; gap: 16px; align-content: stretch; }
+.board-empty { padding: 70px 0; max-width: 50ch; margin: 0 auto; text-align: center; }
+.board-empty h2 { font-family: var(--font-board); font-weight: 700; font-size: 23px; margin-bottom: 10px; color: var(--chalk); }
+.board-empty p { font-size: 15px; line-height: 1.6; color: var(--chalk-dim); }
 
-.hof-card {
-  position: relative; background: var(--ink-2); border: 1px solid var(--line);
-  border-radius: 20px; overflow: hidden;
-}
-.hof-card--lead {
-  border-color: rgba(245,158,11,0.34);
-  background:
-    radial-gradient(120% 90% at 0% 0%, rgba(245,158,11,0.10), transparent 62%),
-    var(--ink-2);
-  display: flex; flex-direction: column; justify-content: flex-end;
-  min-height: 380px; padding: 30px;
-}
-.hof-card--minor { display: flex; align-items: center; gap: 16px; padding: 18px 20px; min-height: 118px; }
-
-/* rank as a typographic mark, not an emoji */
-.hof-rank {
-  position: absolute; top: 14px; right: 22px;
-  font-family: var(--display); font-weight: 900; line-height: 1;
-  pointer-events: none; user-select: none;
-}
-.hof-card--lead .hof-rank { font-size: 96px; color: rgba(245,158,11,0.20); }
-.hof-card--minor .hof-rank { font-size: 46px; color: rgba(255,255,255,0.07); top: 10px; right: 16px; }
-
-/* ── portraits ────────────────────────────────────────────── */
-.hof-portrait {
-  border-radius: 16px; overflow: hidden; flex-shrink: 0;
-  background: var(--ink-3); display: flex; align-items: center; justify-content: center;
-}
-.hof-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.hof-portrait--lead { width: 150px; height: 150px; margin-bottom: 24px; border-radius: 20px; }
-.hof-portrait--minor { width: 74px; height: 74px; border-radius: 14px; }
-.hof-initials { font-family: var(--display); font-weight: 700; color: rgba(255,255,255,0.55); }
-.hof-portrait--lead .hof-initials { font-size: 46px; }
-.hof-portrait--minor .hof-initials { font-size: 24px; }
-
-/* ── names & repos ────────────────────────────────────────── */
-.hof-name { font-family: var(--display); font-weight: 700; letter-spacing: -0.01em; }
-.hof-card--lead .hof-name { font-size: 34px; line-height: 1.1; margin-bottom: 8px; }
-.hof-card--minor .hof-name { font-size: 17px; line-height: 1.2; margin-bottom: 4px; }
-.hof-roll { font-family: var(--mono); font-size: 12.5px; color: var(--quieter); }
-.hof-body { min-width: 0; }
-
-.hof-repo {
-  display: inline-block; margin-top: 16px; max-width: 100%;
-  font-family: var(--mono); font-size: 12.5px; color: var(--gold-lit);
-  border-bottom: 1px solid rgba(252,211,77,0.30); padding-bottom: 2px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  transition: color .18s, border-color .18s;
-}
-.hof-repo:hover { color: #fff; border-color: rgba(255,255,255,0.6); }
-.hof-card--minor .hof-repo { margin-top: 7px; font-size: 11.5px; }
-
-/* ── earlier cycles ───────────────────────────────────────── */
-.hof-past { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.hof-past .hof-card { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
-
-/* ── states ───────────────────────────────────────────────── */
-.hof-empty { padding: 72px 0; max-width: 46ch; }
-.hof-empty h2 { font-family: var(--display); font-weight: 700; font-size: 24px; margin-bottom: 10px; }
-.hof-empty p { font-size: 15px; line-height: 1.6; color: var(--quiet); font-weight: 300; }
-
-.hof-skel { border-radius: 20px; background: var(--ink-2); border: 1px solid var(--line); position: relative; overflow: hidden; }
-.hof-skel::after {
+.board-skel { border-radius: 4px; background: var(--teak-2); position: relative; overflow: hidden; }
+.board-skel::after {
   content: ''; position: absolute; inset: 0; transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.045), transparent);
-  animation: hof-shimmer 1.5s infinite;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.06), transparent);
+  animation: board-shimmer 1.6s infinite;
 }
-@keyframes hof-shimmer { 100% { transform: translateX(100%); } }
-.hof-waking { margin-top: 18px; font-size: 13.5px; color: var(--quieter); line-height: 1.6; }
+@keyframes board-shimmer { 100% { transform: translateX(100%); } }
+.board-waking { margin-top: 18px; font-size: 13.5px; color: var(--chalk-dim); line-height: 1.6; text-align: center; }
 
-/* ── footer ───────────────────────────────────────────────── */
-.hof-foot {
-  margin-top: 80px; padding-top: 22px; border-top: 1px solid var(--line);
-  display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
-  font-size: 13px; color: var(--quieter);
-}
+.board-fade { opacity: 0; animation: board-in .5s cubic-bezier(.22,.61,.36,1) forwards; }
+.board-fade:nth-of-type(2) { animation-delay: .08s; }
+.board-fade:nth-of-type(3) { animation-delay: .16s; }
+@keyframes board-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
-/* ── one orchestrated entrance, feature only ──────────────── */
-.hof-enter { opacity: 0; animation: hof-rise .5s cubic-bezier(.22,.61,.36,1) forwards; }
-.hof-enter:nth-child(2) { animation-delay: .08s; }
-@keyframes hof-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.board a:focus-visible, .board button:focus-visible { outline: 2px solid var(--gold-leaf); outline-offset: 3px; border-radius: 4px; }
 
-.hof a:focus-visible, .hof button:focus-visible {
-  outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px;
-}
+.board-foot { margin-top: 90px; padding-top: 22px; border-top: 1px solid var(--grain); display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--chalk-dim); }
 
-@media (max-width: 900px) {
-  .hof-feature, .hof-feature.is-solo { grid-template-columns: 1fr; }
-  .hof-past { grid-template-columns: 1fr; }
-  .hof-card--lead { min-height: 0; padding: 26px; }
-  .hof-portrait--lead { width: 118px; height: 118px; margin-bottom: 20px; }
-  .hof-card--lead .hof-name { font-size: 28px; }
-  .hof-card--lead .hof-rank { font-size: 72px; }
-}
 @media (max-width: 620px) {
-  .hof-shell { padding: 0 18px 72px; }
-  .hof-head { padding: 40px 0 30px; }
-  .hof-search { max-width: none; }
+  .board-shell { padding: 0 18px 80px; }
+  .board-row { flex-direction: column; align-items: flex-start; text-align: left; gap: 10px; }
+  .board-row--1 { align-items: center; text-align: center; }
+  .board-row--1 .board-body { text-align: center; }
+  .board-search { min-width: 0; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hof-enter { opacity: 1; animation: none; }
-  .hof-skel::after { animation: none; }
+  .board-fade { opacity: 1; animation: none; }
+  .board-skel::after { animation: none; }
 }
 `
 
 /* ── helpers ──────────────────────────────────────────────── */
-
-function initialsOf(name = '') {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (!parts.length) return '—'
-  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
-}
 
 function dateRange(a, b) {
   if (!a || !b) return ''
@@ -227,7 +145,6 @@ function dateRange(a, b) {
   return `${A.getDate()} ${mon(A)} ${A.getFullYear()} – ${B.getDate()} ${mon(B)} ${B.getFullYear()}`
 }
 
-// Show the real repo path — more useful than a generic "GitHub" link.
 function repoLabel(url = '') {
   try {
     const u = new URL(url)
@@ -238,88 +155,60 @@ function repoLabel(url = '') {
   }
 }
 
-function Portrait({ student, size }) {
-  const cls = size === 'lead' ? 'hof-portrait hof-portrait--lead' : 'hof-portrait hof-portrait--minor'
-  if (student.photo) {
-    return (
-      <div className={cls}>
-        <img
-          src={student.photo}
-          alt={student.name ? `${student.name}` : 'Student portrait'}
-          loading={size === 'lead' ? 'eager' : 'lazy'}
-          decoding="async"
-        />
-      </div>
-    )
-  }
+function slugify(s = '') { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'cycle' }
+
+function Row({ student, lead }) {
   return (
-    <div className={cls} aria-hidden="true">
-      <span className="hof-initials">{initialsOf(student.name)}</span>
+    <div className={`board-row ${lead ? 'board-row--1' : 'board-row--rest'}${lead ? ' board-fade' : ''}`}>
+      <span className="board-rank">{student.rank}</span>
+      {student.photo && (
+        <div className="board-photo">
+          <img src={student.photo} alt="" loading={lead ? 'eager' : 'lazy'} decoding="async" />
+        </div>
+      )}
+      <div className="board-body">
+        <div className="board-name">{student.name || 'Unnamed'}</div>
+        {student.roll && <div className="board-roll">{student.roll}</div>}
+        {student.github && (
+          <a className="board-repo" href={student.github} target="_blank" rel="noreferrer noopener">{repoLabel(student.github)}</a>
+        )}
+      </div>
     </div>
   )
 }
 
-function Repo({ url }) {
-  if (!url) return null
-  return (
-    <a className="hof-repo" href={url} target="_blank" rel="noreferrer noopener">
-      {repoLabel(url)}
-    </a>
-  )
-}
+function CyclePanel({ cycle }) {
+  const anchor = `${slugify(cycle.batch?.track || cycle.batch?.name)}-cycle-${cycle.number}`
+  const label = cycle.name ? `${cycle.name}, cycle ${cycle.number}` : `Cycle ${cycle.number}`
+  const [copied, setCopied] = useState(false)
 
-function LeadCard({ student }) {
+  function copyLink() {
+    const url = `${window.location.origin}${window.location.pathname}#${anchor}`
+    navigator.clipboard?.writeText(url)
+    setCopied(true); setTimeout(() => setCopied(false), 1800)
+  }
+
   return (
-    <article className="hof-card hof-card--lead hof-enter">
-      <span className="hof-rank">{student.rank}</span>
-      <Portrait student={student} size="lead" />
-      <div className="hof-body">
-        <h3 className="hof-name">{student.name || 'Unnamed'}</h3>
-        {student.roll && <div className="hof-roll">{student.roll}</div>}
-        <Repo url={student.github} />
+    <section className="board-cycle" id={anchor}>
+      <header className="board-cycle-head">
+        <span className="board-cycle-name">{cycle.batch?.name || 'Skill Lab'}{cycle.batch?.track ? ` · ${cycle.batch.track}` : ''}</span>
+        <span className="board-cycle-meta">{label}, {dateRange(cycle.startDate, cycle.endDate)}</span>
+        <button className="board-copy" onClick={copyLink}>{copied ? 'Link copied' : 'Copy link'}</button>
+      </header>
+      <div>
+        {cycle.top3.map(s => <Row key={s.rank} student={s} lead={s.rank === 1} />)}
       </div>
-    </article>
-  )
-}
-
-function MinorCard({ student, enter }) {
-  return (
-    <article className={`hof-card hof-card--minor${enter ? ' hof-enter' : ''}`}>
-      <span className="hof-rank">{student.rank}</span>
-      <Portrait student={student} size="minor" />
-      <div className="hof-body">
-        <h3 className="hof-name">{student.name || 'Unnamed'}</h3>
-        {student.roll && <div className="hof-roll">{student.roll}</div>}
-        <Repo url={student.github} />
-      </div>
-    </article>
-  )
-}
-
-function CycleHeading({ cycle }) {
-  const label = cycle.name
-    ? `${cycle.name}, cycle ${cycle.number}`
-    : `Cycle ${cycle.number}`
-  return (
-    <header className="hof-cycle-head">
-      <h2 className="hof-cycle-name">{cycle.batch?.name || 'Skill Lab'}</h2>
-      {cycle.batch?.track && <span className="hof-cycle-track">{cycle.batch.track}</span>}
-      <span className="hof-cycle-meta">{label}, {dateRange(cycle.startDate, cycle.endDate)}</span>
-    </header>
+    </section>
   )
 }
 
 function Skeleton() {
   return (
-    <div className="hof-cycle" aria-hidden="true">
-      <div className="hof-skel" style={{ height: 22, width: 260, marginBottom: 26, borderRadius: 8 }} />
-      <div className="hof-feature">
-        <div className="hof-skel" style={{ minHeight: 380 }} />
-        <div className="hof-minors">
-          <div className="hof-skel" style={{ minHeight: 118 }} />
-          <div className="hof-skel" style={{ minHeight: 118 }} />
-        </div>
-      </div>
+    <div className="board-cycle" aria-hidden="true">
+      <div className="board-skel" style={{ height: 18, width: 240, margin: '0 auto 30px' }} />
+      <div className="board-skel" style={{ height: 90, marginBottom: 10 }} />
+      <div className="board-skel" style={{ height: 90, marginBottom: 10 }} />
+      <div className="board-skel" style={{ height: 90 }} />
     </div>
   )
 }
@@ -352,7 +241,6 @@ export default function PublicPage() {
     if (!semId) return
     let cancelled = false
     setLoading(true); setFailed(false); setSlow(false)
-    // Render's free tier sleeps. Say so instead of showing a dead spinner.
     slowTimer.current = setTimeout(() => !cancelled && setSlow(true), 4000)
 
     api.get('/cycles/halloffame', { params: { semester: semId } })
@@ -385,146 +273,84 @@ export default function PublicPage() {
       .filter(c => c.top3.length)
   }, [cycles, track, query])
 
-  const namedCount = useMemo(
-    () => filtered.reduce((n, c) => n + c.top3.length, 0),
-    [filtered]
-  )
-
-  const [latest, ...earlier] = filtered
+  const namedCount = useMemo(() => filtered.reduce((n, c) => n + c.top3.length, 0), [filtered])
   const searching = query.trim().length > 0
+  const activeSem = semesters.find(s => s._id === semId)
 
   return (
-    <div className="hof">
+    <div className="board">
       <style>{CSS}</style>
-      <div className="hof-shell">
+      <div className="board-shell">
 
-        <div className="hof-top">
-          <div className="hof-mark">SHEAT College <span>Skill Lab</span></div>
-          <Link to="/login" className="hof-staff">Staff login</Link>
+        <div className="board-top">
+          <div className="board-mark">SHEAT College of Engineering</div>
+          <Link to="/login" className="board-staff">Staff login</Link>
         </div>
 
-        <header className="hof-head">
-          <h1 className="hof-title">Hall of Fame</h1>
-          <p className="hof-lede">
-            Skill Lab runs in cycles of two to three weeks. Every cycle ends in a project,
-            and three students in each track ship the best of it. This is the record.
-          </p>
-          {!loading && !failed && namedCount > 0 && (
-            <p className="hof-count">
-              {namedCount} {namedCount === 1 ? 'student' : 'students'} named across{' '}
-              {filtered.length} {filtered.length === 1 ? 'cycle' : 'cycles'}
-            </p>
-          )}
+        <header className="board-head">
+          <h1 className="board-title">Hall of Fame</h1>
+          {activeSem && <p className="board-sub">Skill Lab, {activeSem.name}</p>}
         </header>
 
-        <div className="hof-controls">
+        <hr className="board-rule" />
+
+        <p className="board-lede">
+          Every cycle ends in a project. In each track, three students build the best of it.
+          Their names go on this board.
+        </p>
+
+        <div className="board-controls">
           {semesters.length > 0 && (
-            <select
-              className="hof-field"
-              value={semId}
-              onChange={e => setSemId(e.target.value)}
-              aria-label="Semester"
-            >
-              {semesters.map(s => (
-                <option key={s._id} value={s._id}>
-                  {s.name}{s.status === 'active' ? ' (current)' : ''}
-                </option>
-              ))}
+            <select className="board-field" value={semId} onChange={e => setSemId(e.target.value)} aria-label="Semester">
+              {semesters.map(s => <option key={s._id} value={s._id}>{s.name}{s.status === 'active' ? ' (current)' : ''}</option>)}
             </select>
           )}
-
           {tracks.length > 1 && (
-            <select
-              className="hof-field"
-              value={track}
-              onChange={e => setTrack(e.target.value)}
-              aria-label="Track"
-            >
+            <select className="board-field" value={track} onChange={e => setTrack(e.target.value)} aria-label="Track">
               <option value="all">All tracks</option>
               {tracks.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           )}
-
-          <input
-            className="hof-field hof-search"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Find a name or roll number"
-            aria-label="Search students"
-          />
-
+          <input className="board-field board-search" value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="Find a name or roll number" aria-label="Search students" />
           {searching && !loading && (
-            <span className="hof-matches">
-              {namedCount === 0
-                ? 'No matches'
-                : `${namedCount} ${namedCount === 1 ? 'match' : 'matches'}`}
-            </span>
+            <span className="board-matches">{namedCount === 0 ? 'No matches' : `${namedCount} ${namedCount === 1 ? 'match' : 'matches'} across ${filtered.length} ${filtered.length === 1 ? 'cycle' : 'cycles'}`}</span>
           )}
         </div>
 
         {loading && (
           <>
             <Skeleton />
-            {slow && (
-              <p className="hof-waking">
-                Waking the server. The free hosting plan sleeps when it is idle, so the
-                first visit of the day can take up to a minute.
-              </p>
-            )}
+            {slow && <p className="board-waking">Waking the server. The free hosting plan sleeps when it is idle, so the first visit of the day can take up to a minute.</p>}
           </>
         )}
 
         {!loading && failed && (
-          <div className="hof-empty">
+          <div className="board-empty">
             <h2>The results could not be loaded</h2>
-            <p>The server did not respond. Reload the page in a moment — if it keeps
-              failing, the backend may be down.</p>
+            <p>The server did not respond. Reload the page in a moment — if it keeps failing, the backend may be down.</p>
           </div>
         )}
 
         {!loading && !failed && filtered.length === 0 && (
-          <div className="hof-empty">
+          <div className="board-empty">
             {searching ? (
               <>
-                <h2>No student matches “{query.trim()}”</h2>
+                <h2>No student matches "{query.trim()}"</h2>
                 <p>Try a partial name, or clear the search to see every cycle in this semester.</p>
               </>
             ) : (
               <>
                 <h2>No results published yet</h2>
-                <p>Students appear here as soon as a trainer closes a cycle and submits
-                  its top three.</p>
+                <p>Students appear here as soon as a trainer closes a cycle and submits its top three.</p>
               </>
             )}
           </div>
         )}
 
-        {!loading && !failed && latest && (
-          <section className="hof-cycle">
-            <CycleHeading cycle={latest} />
-            <div className={`hof-feature${latest.top3.length < 2 ? ' is-solo' : ''}`}>
-              <LeadCard student={latest.top3[0]} />
-              {latest.top3.length > 1 && (
-                <div className="hof-minors">
-                  {latest.top3.slice(1).map(s => (
-                    <MinorCard key={s.rank} student={s} enter />
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+        {!loading && !failed && filtered.map(c => <CyclePanel key={c._id} cycle={c} />)}
 
-        {!loading && !failed && earlier.map(c => (
-          <section className="hof-cycle" key={c._id}>
-            <CycleHeading cycle={c} />
-            <div className="hof-past">
-              {c.top3.map(s => <MinorCard key={s.rank} student={s} />)}
-            </div>
-          </section>
-        ))}
-
-        <footer className="hof-foot">
+        <footer className="board-foot">
           <span>SHEAT College of Engineering, Varanasi</span>
           <span>Skill Lab — practical training, measured</span>
         </footer>
