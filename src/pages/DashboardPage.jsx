@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
+import PageHelp from '../components/PageHelp'
 
 const TRACK_COLOR = {
   'AI/ML': 'var(--track-aiml)', 'MERN': 'var(--track-mern)',
@@ -62,7 +63,10 @@ export default function DashboardPage() {
   return (
     <div className="page">
       <div style={{ marginBottom: 22 }}>
-        <h1 className="page-title">Today, {fmtToday()}</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h1 className="page-title">Today, {fmtToday()}</h1>
+          <span data-tour="dash-help"><PageHelp page="dashboard" role={user?.role} /></span>
+        </div>
         <p className="muted" style={{ fontSize: 14, marginTop: 2 }}>{semName ? semName : 'No active semester yet'}</p>
       </div>
 
@@ -80,7 +84,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div style={{ paddingBottom: 16, marginBottom: 4 }}>
+          <div data-tour="dash-summary" style={{ paddingBottom: 16, marginBottom: 4 }}>
             {flaggedCount === 0 ? (
               <p style={{ fontSize: 18, color: 'var(--tick)', fontWeight: 600 }}>
                 All {rows.length} {rows.length === 1 ? 'batch has' : 'batches have'} logged today. Nobody is behind plan.
@@ -111,7 +115,7 @@ export default function DashboardPage() {
               <thead>
                 <tr>
                   <th>Batch</th><th>Trainers</th><th className="num">Students</th>
-                  <th>Status</th><th>Plan progress</th><th>Next topic</th><th></th>
+                  <th data-tour="dash-status">Status</th><th data-tour="dash-plan">Plan progress</th><th data-tour="dash-next">Next topic</th><th></th>
                 </tr>
               </thead>
               <tbody>

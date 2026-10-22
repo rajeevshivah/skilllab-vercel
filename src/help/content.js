@@ -6,6 +6,32 @@
 //   video : optional link (YouTube etc.). Leave '' to hide the button.
 
 const HELP = {
+  dashboard: {
+    title: 'Today — your daily starting point',
+    what: 'Every batch you train, with one question answered for each: did today\'s class get logged, and is the batch on track with its syllabus?',
+    why: 'This page is how the program runs without anyone chasing trainers. A batch that hasn\'t logged, or has fallen behind its syllabus, is flagged here automatically — for the trainer, the coordinator and the MD alike.',
+    rules: [
+      { t: 'Log every class, the same day', d: 'Open the batch → fill the daily class log: what was taught + attendance. No log = the class did not happen, as far as the system (and reports) know.' },
+      { t: 'When a batch is flagged', d: 'Once a batch has syllabus topics, it is flagged in red if it has not logged today or has covered under 40% of its syllabus.' },
+      { t: 'Plan progress comes from the syllabus', d: 'It counts topics in Batch → Plan tab that daily logs have marked as covered. “0 of 0” means no syllabus topics were added yet — add them, or the batch can never show as behind.' },
+      { t: 'Next topic', d: 'The first syllabus topic not yet covered — what the next class should teach.' },
+    ],
+    flow: [
+      'Batch → Plan tab: add the syllabus topics once per batch.',
+      'Cycles → Plan: lay out the classes of each cycle.',
+      'After every class: Batch → daily log (topics covered + attendance).',
+      'End of cycle: Marks → cycle report → Top 3.',
+    ],
+    steps: [
+      { el: 'dash-summary', title: 'Today at a glance', text: 'Green means every batch logged today and nobody is behind. Otherwise it names who hasn’t logged.' },
+      { el: 'dash-status', title: 'Logged today?', text: '“Logged” once today’s class log is saved. Log every class the same day — attendance and reports are built from it.' },
+      { el: 'dash-plan', title: 'Syllabus progress', text: 'Topics covered out of the batch syllabus (Batch → Plan tab). “0 of 0” means the syllabus hasn’t been added yet.' },
+      { el: 'dash-next', title: 'What to teach next', text: 'The next uncovered syllabus topic. Click “Open” on a row to log today’s class.' },
+      { el: 'dash-help', title: 'Help on every page', text: 'Look for “Explain this page” — it explains the page and replays this tour anytime.' },
+    ],
+    video: '',
+  },
+
   plan: {
     title: 'Cycle Plan — the class-by-class plan',
     what: 'Before a cycle starts, the trainer lays out every class of the cycle here: class number, topic, what will be covered, date and trainer.',
