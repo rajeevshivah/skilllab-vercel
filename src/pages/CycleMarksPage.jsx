@@ -26,6 +26,7 @@ export default function CycleMarksPage() {
   const [query, setQuery] = useState('')
   const [dirty, setDirty] = useState(false)
   const [sticky, setSticky] = useState(() => new Set())
+  const [togglingHeld, setTogglingHeld] = useState(false)
   const cellRefs = useRef({})
   const show = (msg, type = 'success') => { setAlert({ msg, type }); setTimeout(() => setAlert(null), 4500) }
 
@@ -52,8 +53,13 @@ export default function CycleMarksPage() {
   const canEdit = user?.role === 'superadmin'
     || (cycle?.batch?.trainers || []).some(t => (t._id || t) === myId)
 
+  // The MCQ assessment is optional per cycle. Without it the score is the
+  // project mark out of 100; with it, project + assessment out of 200.
+  const held = cycle?.assessmentHeld !== false
+  const outOf = held ? 200 : 100
+
   function catFromMarks(a, p) {
-    const t = (Number(a) || 0) + (Number(p) || 0), pct = t / 200 * 100
+    const t = held ? (Number(a) || 0) + (Number(p) || 0) : (Number(p) || 0), pct = t / outOf * 100
     if (pct === 0) return 'zero'; if (pct >= 75) return 'excellent'; if (pct >= 50) return 'moderate'; return 'basic'
   }
 
@@ -86,7 +92,20 @@ export default function CycleMarksPage() {
     setDirty(true)
   }
 
-  const total = (r) => r.status === 'evaluated' ? (Number(r.assessment) || 0) + (Number(r.project) || 0) : null
+  const total = (r) => r.status !== 'evaluated' ? null
+    : held ? (Number(r.assessment) || 0) + (Number(r.project) || 0) : (Number(r.project) || 0)
+
+  async function toggleHeld(next) {
+    if (dirty) return show('Save or discard your unsaved marks first, then change this setting.', 'error')
+    setTogglingHeld(true)
+    try {
+      const { data } = await api.patch(`/marks/${id}/assessment-held`, { held: next })
+      show(next ? 'Assessment marked as held — scores are now out of 200.'
+        : `No assessment this cycle — scores are now the project mark out of 100. ${data.recategorised} categor${data.recategorised === 1 ? 'y' : 'ies'} recalculated.`)
+      load()
+    } catch (e) { show(e.response?.data?.message || 'Failed to change the setting', 'error') }
+    finally { setTogglingHeld(false) }
+  }
 
   async function save() {
     setSaving(true)
@@ -183,10 +202,19 @@ export default function CycleMarksPage() {
       <div style={{ marginTop: 8, marginBottom: 6 }}>
         <h1 className="page-title">{cycle.batch?.name} — Cycle {cycle.number} · Marks</h1>
         <p className="muted" style={{ fontSize: 14, marginTop: 2 }}>
-          Assessment + Project out of 100 each. Category is auto from total — you can override it.
+          {held ? 'Assessment + Project out of 100 each (total /200).' : 'No assessment this cycle — the score is the project mark out of 100.'}
+          {' '}Category is auto from the score — you can override it.
           {sessions != null && ` Attendance is out of ${sessions} session${sessions === 1 ? '' : 's'} held in this cycle.`}
         </p>
       </div>
+
+      {canEdit && (
+        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 14, marginBottom: 12, cursor: 'pointer' }}>
+          <input type="checkbox" checked={held} disabled={togglingHeld} onChange={e => toggleHeld(e.target.checked)} />
+          Assessment (MCQ) was held this cycle
+          <span className="muted" style={{ fontSize: 12 }}>— untick if only the project was evaluated</span>
+        </label>
+      )}
 
       {!rosterLocked && (
         <div className="banner banner--pencil">
@@ -267,9 +295,10 @@ export default function CycleMarksPage() {
                           <input
                             ref={el => cellRefs.current[`${ri}-1`] = el}
                             onKeyDown={e => onCellKeyDown(e, ri, 1)}
-                            type="number" min="0" max="100" disabled={!canEdit || !evaluated}
+                            type="number" min="0" max="100" disabled={!canEdit || !evaluated || !held}
+                            title={held ? undefined : 'No assessment this cycle'} placeholder={held ? undefined : '—'}
                             className="ctl" style={{ width: 64, height: 30, padding: '0 6px' }}
-                            value={r.assessment ?? ''} onChange={e => update(r.student, 'assessment', e.target.value)} />
+                            value={held ? (r.assessment ?? '') : ''} onChange={e => update(r.student, 'assessment', e.target.value)} />
                         </td>
                         <td>
                           <input
@@ -279,7 +308,7 @@ export default function CycleMarksPage() {
                             className="ctl" style={{ width: 64, height: 30, padding: '0 6px' }}
                             value={r.project ?? ''} onChange={e => update(r.student, 'project', e.target.value)} />
                         </td>
-                        <td className="num" style={{ fontWeight: 600 }}>{total(r) == null ? '—' : `${total(r)}/200`}</td>
+                        <td className="num" style={{ fontWeight: 600 }}>{total(r) == null ? '—' : `${total(r)}/${outOf}`}</td>
                         <td>
                           {!evaluated ? <span className="tag tag--muted">—</span> :
                             <select
