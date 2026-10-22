@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
 import { ui, Alert } from '../components/ui'
+import PageHelp from '../components/PageHelp'
 
 export default function CyclePlanPage() {
   const { id } = useParams()
@@ -102,7 +103,10 @@ export default function CyclePlanPage() {
     <div style={ui.wrap}>
       <Link to="/cycles" style={{ ...ui.sub, color:'var(--blue)' }}>← All cycles</Link>
       <div style={{ marginTop:8, marginBottom:6 }}>
-        <h1 style={ui.h1}>{cycle.batch?.name} — Cycle {cycle.number} · Plan</h1>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+          <h1 style={ui.h1} data-tour="plan-title">{cycle.batch?.name} — Cycle {cycle.number} · Plan</h1>
+          <span data-tour="plan-help"><PageHelp page="plan" role={user?.role} /></span>
+        </div>
         <p style={ui.sub}>Lay out the classes for this cycle — add one row per class. Trainers can fill this in the planning meeting.</p>
       </div>
 
@@ -114,7 +118,7 @@ export default function CyclePlanPage() {
         </div>
       )}
 
-      <div style={{ display:'grid', gap:12, marginTop:14 }}>
+      <div style={{ display:'grid', gap:12, marginTop:14 }} data-tour="plan-classes">
         {classes.map((c, i) => (
           <div key={i} style={ui.card}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
@@ -150,7 +154,7 @@ export default function CyclePlanPage() {
       </div>
 
       {canEdit && (
-        <div style={{ display:'flex', gap:10, marginTop:16, flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:10, marginTop:16, flexWrap:'wrap' }} data-tour="plan-actions">
           <button style={ui.btnGhost} onClick={addClass}>+ Add class</button>
           <button style={ui.btnGold} disabled={saving} onClick={save}>{saving?'Saving…':'Save plan'}</button>
           {classes.length > 0 && <button style={ui.btnGhost} onClick={exportPlan}>Export / print for students</button>}

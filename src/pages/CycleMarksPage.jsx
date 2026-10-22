@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
+import PageHelp from '../components/PageHelp'
 
 const CAT = {
   excellent: ['Excellent', 'tag--tick'],
@@ -200,7 +201,10 @@ export default function CycleMarksPage() {
     <div className="page">
       <Link to="/cycles" className="btn btn--quiet" style={{ fontSize: 13 }}>← All cycles</Link>
       <div style={{ marginTop: 8, marginBottom: 6 }}>
-        <h1 className="page-title">{cycle.batch?.name} — Cycle {cycle.number} · Marks</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h1 className="page-title">{cycle.batch?.name} — Cycle {cycle.number} · Marks</h1>
+          <PageHelp page="marks" role={user?.role} />
+        </div>
         <p className="muted" style={{ fontSize: 14, marginTop: 2 }}>
           {held ? 'Assessment + Project out of 100 each (total /200).' : 'No assessment this cycle — the score is the project mark out of 100.'}
           {' '}Category is auto from the score — you can override it.
@@ -209,7 +213,7 @@ export default function CycleMarksPage() {
       </div>
 
       {canEdit && (
-        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 14, marginBottom: 12, cursor: 'pointer' }}>
+        <label data-tour="marks-held" style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 14, marginBottom: 12, cursor: 'pointer' }}>
           <input type="checkbox" checked={held} disabled={togglingHeld} onChange={e => toggleHeld(e.target.checked)} />
           Assessment (MCQ) was held this cycle
           <span className="muted" style={{ fontSize: 12 }}>— untick if only the project was evaluated</span>
@@ -233,7 +237,7 @@ export default function CycleMarksPage() {
           value={query} onChange={e => changeQuery(e.target.value)} />
         {query && <button className="btn btn--secondary btn--sm" onClick={() => changeQuery('')}>Clear</button>}
       </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+      <div data-tour="marks-filters" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
         {[['all', `All (${rows.length})`], ['excellent', `Excellent (${counts.excellent || 0})`],
         ['moderate', `Moderate (${counts.moderate || 0})`], ['basic', `Basic (${counts.basic || 0})`],
         ['zero', `Zero (${counts.zero || 0})`], ['not-evaluated', `Not evaluated (${counts.notEval})`]].map(([k, label]) => (
@@ -261,7 +265,7 @@ export default function CycleMarksPage() {
       {rows.length === 0 ? <div className="empty"><h2>No students in this batch</h2><p>Import the roster in the batch's Students tab first.</p></div>
         : (
           <>
-            <div className="table-wrap sheet" style={{ borderRadius: 10 }}>
+            <div className="table-wrap sheet" data-tour="marks-table" style={{ borderRadius: 10 }}>
               <table className="table table--compact">
                 <thead><tr>
                   <th>Roll</th><th>Name</th><th className="num">Att%</th>
@@ -336,7 +340,7 @@ export default function CycleMarksPage() {
                 </tbody>
               </table>
             </div>
-            {canEdit && <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            {canEdit && <div data-tour="marks-save" style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <button className="btn btn--primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save marks'}</button>
               <Link to={`/cycle/${id}`}><button className="btn btn--secondary">Go to cycle report / Top 3</button></Link>
               {dirty && <span className="muted" style={{ fontSize: 12, color: 'var(--pencil)' }}>You have unsaved changes.</span>}
