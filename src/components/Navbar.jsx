@@ -90,6 +90,7 @@ export default function Navbar() {
                 <div className="dropdown-panel">
                   <div className="dropdown-label" style={{ textTransform: 'capitalize' }}>{user.role}</div>
                   <div className="dropdown-sep" />
+                  <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Connect AI</Link>
                   <button onClick={handleLogout}>Log out</button>
                 </div>
               )}
@@ -103,6 +104,7 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="nav-mobile-panel">
           {tabs}
+          {user && <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''}>Connect AI</Link>}
           {user?.role === 'superadmin' && (
             <>
               <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''}>Semesters</Link>
