@@ -14,6 +14,7 @@ import CycleReportPage from './pages/CycleReportPage'
 import CycleMarksPage  from './pages/CycleMarksPage'
 import CyclePlanPage   from './pages/CyclePlanPage'
 import ConnectAIPage   from './pages/ConnectAIPage'
+import PerformancePage from './pages/PerformancePage'
 import Navbar        from './components/Navbar'
 
 function Protected({ children, admin }) {
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/cycle/:id"  element={<Protected><CycleReportPage /></Protected>} />
         <Route path="/cycle/:id/marks" element={<Protected><CycleMarksPage /></Protected>} />
         <Route path="/cycle/:id/plan"  element={<Protected><CyclePlanPage /></Protected>} />
+        <Route path="/performance" element={<Protected><PerformancePage /></Protected>} />
         <Route path="/connect-ai" element={<Protected><ConnectAIPage /></Protected>} />
         <Route path="/semesters" element={<Protected admin><SemestersPage /></Protected>} />
         <Route path="/users"     element={<Protected admin><UsersPage /></Protected>} />

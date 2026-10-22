@@ -44,6 +44,7 @@ export default function Navbar() {
       <Link to="/batches" className={is('/batches') || loc.pathname.startsWith('/batch/') ? 'is-active' : ''}>Batches</Link>
       <Link to="/cycles" className={is('/cycles') || loc.pathname.startsWith('/cycle/') ? 'is-active' : ''}>Cycles</Link>
       <Link to="/placement" className={is('/placement') ? 'is-active' : ''}>Placement</Link>
+      <Link to="/performance" className={is('/performance') ? 'is-active' : ''}>Performance</Link>
       {user?.role === 'superadmin' && (
         <div className="dropdown" ref={adminRef} style={{ display: 'inline-block' }}>
           <button

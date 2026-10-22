@@ -6,6 +6,35 @@
 //   video : optional link (YouTube etc.). Leave '' to hide the button.
 
 const HELP = {
+  performance: {
+    title: 'Trainer Performance — how it works',
+    what: 'One page that shows, for every cycle and every batch, whether the trainer finished the cycle work on time, who actually did it, and a score out of 100. Trainers see exactly what management sees.',
+    why: 'The program should run without anyone chasing people. Every save is time-stamped automatically, so nobody has to argue about who did what and when — the page simply shows it.',
+    rules: [
+      { t: 'Deadline', d: 'Each batch has a project day (its cycle evaluation day). The cycle form, marks and Top 3 are due by the Saturday after the project day, 7 PM India time. The admin can change the project day or deadline for a batch, or for all batches of a cycle.' },
+      { t: 'When is it "done"?', d: 'Cycle form: when the report is saved. Marks: when EVERY student has an entry (evaluated or not evaluated). Top 3: when it is saved. The time recorded is the first time each was completed — later edits never change it.' },
+      { t: 'On time · Late · Done by admin', d: 'On time = finished by the trainer before the deadline. Late = finished by the trainer after it (shows by how many days). Done by admin = the trainer did not do it and an admin filled it in — the trainer gets 0 for that part. Not done = still missing after the deadline.' },
+      { t: 'Score out of 100', d: 'Daily log saved the same day 35 · Cycle form 10 · Marks 10 · Top 3 10 · Cycle plan ready before the cycle starts 15 · Attendance taken in each log 10 · Students at Moderate or above 10. Late work gets part credit; work done by an admin gets none. Only parts already due are counted.' },
+      { t: 'Daily logs', d: 'Every class day counts: a day is a day with a log or a planned class. Logged the same day = full credit, later = half, created by admin or missing = 0.' },
+      { t: 'Excused', d: 'For a genuine reason (exam duty, illness) the admin can excuse a batch\'s cycle. Lateness is then not penalised, and the reason is shown to everyone.' },
+      { t: 'Tracked cycles only', d: 'Cycles 1–3 were before tracking started, so they show information but no score. Every new cycle is tracked automatically.' },
+    ],
+    flow: [
+      'Before the cycle: fill the Cycle Plan.',
+      'Every class: fill the daily log the same day, with attendance.',
+      'After the project day: cycle form + marks for every student + Top 3 — before Saturday 7 PM.',
+      'This page updates by itself. Trainer score = average over the batches they train.',
+    ],
+    steps: [
+      { el: 'perf-cycle', title: 'Pick a cycle', text: 'Choose which cycle to look at. Cycles marked “not tracked” were before tracking started and have no score.' },
+      { el: 'perf-summary', title: 'The cycle at a glance', text: 'How many batches finished on time, late, were completed by admin, or are still not done.' },
+      { el: 'perf-trainers', title: 'Trainer scores', text: 'Each trainer’s score for this cycle and the semester average. Your own row is highlighted.' },
+      { el: 'perf-batches', title: 'Every batch', text: 'Project day, deadline, when the work was completed, and the status. Red-edged rows are late or not done.' },
+      { el: 'perf-details', title: 'See exactly what happened', text: '“Details” shows who did each item and when — including “Updated by admin”. “Report” opens the full cycle report.' },
+    ],
+    video: '',
+  },
+
   dashboard: {
     title: 'Today — your daily starting point',
     what: 'Every batch you train, with one question answered for each: did today\'s class get logged, and is the batch on track with its syllabus?',
