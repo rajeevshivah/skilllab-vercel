@@ -102,6 +102,7 @@ export default function CyclesPage() {
             onChange={e=>setSelected(semesters.find(s=>s._id===e.target.value))}>
             {semesters.map(s => <option key={s._id} value={s._id}>{s.name}{s.status==='active'?' (active)':''}</option>)}
           </select>
+          <Link to="/plans"><button style={ui.btnGhost}>📅 All class plans (day by day)</button></Link>
           {isAdmin && <button style={ui.btnGold} onClick={()=>{ setShowForm(v=>!v); setForm(blank) }}>+ New Cycle</button>}
         </div>
       </div>

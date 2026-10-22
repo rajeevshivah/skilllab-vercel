@@ -87,6 +87,11 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
   const [notes, setNotes] = useState('')
   const [prepLink, setPrepLink] = useState('')
   const [planned, setPlanned] = useState(null)
+  const [planList, setPlanList] = useState([])
+  const [planClass, setPlanClass] = useState('')
+  const [github, setGithub] = useState('')
+  const { user: me } = useAuth()
+  const isAdmin = me?.role === 'superadmin'
   const [present, setPresent] = useState({})
   const [attQuery, setAttQuery] = useState('')
   const [saving, setSaving] = useState(false)
@@ -103,18 +108,22 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
       ])
       setPlan(p.data.plan)
       setRoster(r.data.students)
+      let plannedNo = ''
       try {
         const pl = await api.get('/cycleplans/for-date/lookup', { params: { batch: batchId, date } })
-        setPlanned(pl.data.planned)
-      } catch { setPlanned(null) }
+        setPlanned(pl.data.planned); setPlanList(pl.data.classes || [])
+        plannedNo = pl.data.planned?.number ?? ''
+      } catch { setPlanned(null); setPlanList([]) }
       const one = await api.get('/logs/one', { params: { batch: batchId, date } })
       if (one.data.log) {
         const L = one.data.log
         setCovered(L.topicsCovered.map(String)); setStatus(L.status); setNotes(L.notes || ''); setPrepLink(L.prepLink || '')
+        setPlanClass(L.planClass ?? plannedNo); setGithub(L.github || '')
         const pmap = {}; L.attendance.forEach(a => pmap[a.student] = a.present); setPresent(pmap)
       } else {
         const pmap = {}; r.data.students.forEach(s => pmap[s._id] = true)
         setPresent(pmap); setCovered([]); setStatus('done'); setNotes(''); setPrepLink('')
+        setPlanClass(plannedNo); setGithub('')
       }
     } catch (e) { show(e.response?.data?.message || 'Failed to load day', 'error') }
     finally { setLoading(false) }
@@ -123,13 +132,25 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
   function toggleTopic(tid) { setCovered(c => c.includes(tid) ? c.filter(x => x !== tid) : [...c, tid]) }
   function toggleAll(val) { const m = {}; roster.forEach(s => m[s._id] = val); setPresent(m) }
 
+  const noClass = status === 'no-class'
+  const missing = noClass ? [] : [
+    planClass === '' || planClass == null ? 'which planned class' : null,
+    !github ? 'GitHub push' : null,
+    status !== 'done' && !notes.trim() ? 'what was actually taught' : null,
+  ].filter(Boolean)
+
   async function save() {
+    if (noClass && !notes.trim()) { show('Write the reason (holiday, exam, cancelled…) in the note.', 'error'); return }
     setSaving(true)
     try {
       await api.post('/logs', {
         batch: batchId, date, topicsCovered: covered, status, notes, prepLink,
-        attendance: roster.map(s => ({ student: s._id, present: !!present[s._id] })),
+        planClass: noClass ? null : (planClass === '' ? null : Number(planClass)),
+        github: noClass ? '' : github,
+        attendance: noClass ? [] : roster.map(s => ({ student: s._id, present: !!present[s._id] })),
       })
+      if (missing.length) show(`Saved, but incomplete — still missing: ${missing.join(', ')}. Complete it today for full credit.`, 'error')
+      else
       show(`Log saved for ${date}.`)
       onClose()
     } catch (e) { show(e.response?.data?.message || 'Failed to save', 'error') }
@@ -190,18 +211,47 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
                       )
                     })}
                   </div>}
-                <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-                  {['done', 'partial', 'not-covered'].map(s => (
-                    <button key={s} type="button" onClick={() => setStatus(s)}
-                      className={`btn btn--sm ${status === s ? 'btn--primary' : 'btn--secondary'}`} style={{ textTransform: 'capitalize' }}>
-                      {s.replace('-', ' ')}
-                    </button>
-                  ))}
+              </div>
+
+              <div style={{ display: 'grid', gap: 14, padding: 14, border: '1px solid var(--rule-strong)', borderRadius: 8 }}>
+                <div className="muted" style={{ fontSize: 12.5 }}>
+                  <b style={{ color: 'var(--ink)' }}>Log rule:</b> save this on the class day (before midnight), by the trainer who taught.
+                  Full credit needs: the planned class, how it went, GitHub push and attendance. If it was not done as planned, write what was taught.
                 </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <label htmlFor="log-planclass">Which planned class was this?</label>
+                  <select id="log-planclass" className="ctl" value={planClass} disabled={noClass} onChange={e => setPlanClass(e.target.value === '' ? '' : Number(e.target.value))}>
+                    <option value="">— choose —</option>
+                    {planList.map(c => <option key={c.number} value={c.number}>Class {c.number}{c.title ? ` — ${c.title.slice(0, 60)}` : ''}{c.date ? ` (planned ${c.date.slice(8, 10)}/${c.date.slice(5, 7)})` : ''}</option>)}
+                  </select>
+                  {planList.length === 0 && <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>This cycle has no class plan yet — ask the admin.</p>}
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>How did it go?</label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {[['done', 'Done as planned'], ['partial', 'Partly done'], ['not-covered', 'Not done'], ...(isAdmin ? [['no-class', 'No class (admin)']] : [])].map(([k, l]) => (
+                      <button key={k} type="button" onClick={() => setStatus(k)}
+                        className={`btn btn--sm ${status === k ? 'btn--primary' : 'btn--secondary'}`}>{l}</button>
+                    ))}
+                  </div>
+                  {noClass && <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>No class that day (holiday, exam, cancelled). The day is not counted for anyone. Write the reason below.</p>}
+                </div>
+                {!noClass && <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Did students push today's code to GitHub?</label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {[['all', 'All'], ['most', 'Most'], ['few', 'A few'], ['none', 'None'], ['na', 'Not needed today']].map(([k, l]) => (
+                      <button key={k} type="button" onClick={() => setGithub(k)}
+                        className={`btn btn--sm ${github === k ? 'btn--primary' : 'btn--secondary'}`}>{l}</button>
+                    ))}
+                  </div>
+                </div>}
+                {missing.length > 0
+                  ? <div className="tag tag--pencil" style={{ justifySelf: 'start' }}>Still missing: {missing.join(', ')}</div>
+                  : <div className="tag tag--tick" style={{ justifySelf: 'start' }}>{noClass ? 'Will be marked as no class' : 'Complete ✓'}</div>}
               </div>
 
               <div className="field">
-                <label htmlFor="log-notes">What was actually taught</label>
+                <label htmlFor="log-notes">{noClass ? 'Reason (holiday, exam, cancelled…)' : 'What was actually taught'}{status !== 'done' && !noClass ? ' — required' : ''}</label>
                 <textarea id="log-notes" className="ctl" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Short note on what happened in class…" />
               </div>
               <div className="field">
@@ -209,7 +259,7 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
                 <input id="log-prep" className="ctl" value={prepLink} onChange={e => setPrepLink(e.target.value)} placeholder="https://github.com/…" />
               </div>
 
-              <div>
+              {!noClass && <div>
                 <h3 className="section-title" style={{ fontSize: 15, marginBottom: 10 }}>
                   Attendance <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· {presentCount}/{roster.length} present</span>
                 </h3>
@@ -233,7 +283,7 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
                       </button>
                     ))}
                   </div>}
-              </div>
+              </div>}
 
               {canEdit && <div><button className="btn btn--primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save daily log'}</button></div>}
             </div>

@@ -43,6 +43,7 @@ export default function Navbar() {
       <Link to="/dashboard" className={is('/dashboard') ? 'is-active' : ''}>Today</Link>
       <Link to="/batches" className={is('/batches') || loc.pathname.startsWith('/batch/') ? 'is-active' : ''}>Batches</Link>
       <Link to="/cycles" className={is('/cycles') || loc.pathname.startsWith('/cycle/') ? 'is-active' : ''}>Cycles</Link>
+      <Link to="/plans" className={is('/plans') ? 'is-active' : ''}>Class plans</Link>
       <Link to="/placement" className={is('/placement') ? 'is-active' : ''}>Placement</Link>
       <Link to="/performance" className={is('/performance') ? 'is-active' : ''}>Performance</Link>
       {user?.role === 'superadmin' && (

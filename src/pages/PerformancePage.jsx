@@ -173,7 +173,7 @@ function Details({ r, isAdmin, me, onSaved }) {
         <div className="muted" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', margin: '12px 0 4px' }}>During the cycle</div>
         <ItemLine label="Cycle plan" item={r.items.plan} who={r.who.plan} />
         <div style={{ fontSize: 13.5, lineHeight: 1.7, marginTop: 6 }}>
-          <div><b>Daily logs:</b> {L.days ? <>{L.days} class day(s) — <span style={{ color: 'var(--tick)' }}>{L.onTime} same day</span>{L.late ? <>, <span style={{ color: 'var(--red-ink)' }}>{L.late} late</span></> : ''}{L.admin ? <>, <span style={{ color: 'var(--pencil)' }}>{L.admin} by admin</span></> : ''}{L.missing ? <>, <span style={{ color: 'var(--red-ink)' }}>{L.missing} not logged</span></> : ''}</> : 'no class days yet'}</div>
+          <div><b>Daily logs:</b> {L.days ? <>{L.days} class day(s) — <span style={{ color: 'var(--tick)' }}>{L.onTime} same day</span>{L.late ? <>, <span style={{ color: 'var(--red-ink)' }}>{L.late} late</span></> : ''}{L.incomplete ? <>, <span style={{ color: 'var(--pencil)' }}>{L.incomplete} incomplete</span></> : ''}{L.admin ? <>, <span style={{ color: 'var(--pencil)' }}>{L.admin} by admin</span></> : ''}{L.missing ? <>, <span style={{ color: 'var(--red-ink)' }}>{L.missing} not logged</span></> : ''}{L.noClass ? <span className="muted"> · {L.noClass} no-class day(s) not counted</span> : ''}</> : 'no class days yet'}</div>
           <div><b>Attendance taken:</b> {A.days ? `${A.taken} of ${A.days} days` : '—'}</div>
           <div><b>Students Moderate or above:</b> {O.evaluated ? `${O.good} of ${O.evaluated} evaluated` : '—'}</div>
           {r.lateEdits > 0 && <div><b>Changes after the deadline:</b> {r.lateEdits}</div>}

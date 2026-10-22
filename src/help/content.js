@@ -15,7 +15,7 @@ const HELP = {
       { t: 'When is it "done"?', d: 'Cycle form: when the report is saved. Marks: when EVERY student has an entry (evaluated or not evaluated). Top 3: when it is saved. The time recorded is the first time each was completed — later edits never change it.' },
       { t: 'On time · Late · Done by admin', d: 'On time = finished by the trainer before the deadline. Late = finished by the trainer after it (shows by how many days). Done by admin = the trainer did not do it and an admin filled it in — the trainer gets 0 for that part. Not done = still missing after the deadline.' },
       { t: 'Score out of 100', d: 'Daily log saved the same day 35 · Cycle form 10 · Marks 10 · Top 3 10 · Cycle plan ready before the cycle starts 15 · Attendance taken in each log 10 · Students at Moderate or above 10. Late work gets part credit; work done by an admin gets none. Only parts already due are counted.' },
-      { t: 'Daily logs', d: 'Every class day counts: a day is a day with a log or a planned class. Logged the same day = full credit, later = half, created by admin or missing = 0.' },
+      { t: 'Daily logs (the log rule)', d: 'Every class day counts: a day with a planned class or a log. From 26 Oct a log is complete when it names the planned class, says how it went (done / partly / not done), answers “did students push to GitHub?”, and — if not done as planned — says what was taught. Complete on the class day = full credit · completed later = half · saved on the day but incomplete = half · saved later and incomplete = quarter · created by admin or missing = 0. Days the admin marks “No class” (holiday, exam, cancelled) are not counted.' },
       { t: 'Excused', d: 'For a genuine reason (exam duty, illness) the admin can excuse a batch\'s cycle. Lateness is then not penalised, and the reason is shown to everyone.' },
       { t: 'Tracked cycles only', d: 'Cycles that ended before tracking started show information but no score. Every new cycle is tracked automatically.' },
       { t: 'Grouped by deadline, not cycle number', d: 'Batches that finish together are shown together — e.g. 1st year\'s Cycle 1 and 3rd sem\'s Cycle 3 were both due 17 Oct, so they appear in the same view.' },
@@ -39,12 +39,36 @@ const HELP = {
     video: '',
   },
 
+  board: {
+    title: 'All class plans — every batch, day by day',
+    what: 'One page with the class plan of every batch for the selected cycle period. See what each batch is doing on each day, edit when allowed, and see whether every past class was logged properly.',
+    why: 'Planning together is faster when everyone sees the whole picture. And because the plan is locked, the plan everyone agreed on is the plan that is followed — any change is visible with the name of who made it.',
+    rules: [
+      { t: 'Who can edit', d: 'The admin always can. Trainers can edit only while the admin has clicked “Let trainers edit” (for planning meetings). Locked again with one click. Every change is saved with the name and time.' },
+      { t: 'Class moved or cancelled?', d: 'Tell the admin. The admin moves the class to its new date (or marks the day “No class” in the batch log), so nobody is marked as missing a log.' },
+      { t: 'Log status under each past class', d: 'Green = logged and complete. Yellow = logged but missing something (planned class, GitHub push, or what was taught). Red = not logged. Blue = no class that day.' },
+      { t: 'The log rule', d: 'Log on the class day, before midnight, by the trainer who taught: which planned class, done / partly / not done, did students push to GitHub, and attendance. Not done as planned → write what was taught.' },
+    ],
+    flow: [
+      'Planning meeting: admin opens editing → everyone fills or fixes their batch plans here → admin locks.',
+      'Every class day: trainer logs the class on the Batch page, choosing the planned class.',
+      'This page and the Performance page show who followed the plan and logged on time.',
+    ],
+    steps: [
+      { el: 'board-controls', title: 'Pick the cycle period', text: 'Batches that run on the same dates are shown together. Switch between “Day by day” and “By batch”.' },
+      { el: 'board-lock', title: 'Locked or open', text: 'Shows whether trainers can edit right now. The admin opens and locks editing here.' },
+      { el: 'board-days', title: 'Each day, every batch', text: 'Every class planned for the day. Past classes show whether the log was saved and complete.' },
+      { el: 'board-help', title: 'Help anytime', text: 'Click “Explain this page” to see this again.' },
+    ],
+    video: '',
+  },
+
   dashboard: {
     title: 'Today — your daily starting point',
     what: 'Every batch you train, with one question answered for each: did today\'s class get logged, and is the batch on track with its syllabus?',
     why: 'This page is how the program runs without anyone chasing trainers. A batch that hasn\'t logged, or has fallen behind its syllabus, is flagged here automatically — for the trainer, the coordinator and the MD alike.',
     rules: [
-      { t: 'Log every class, the same day', d: 'Open the batch → fill the daily class log: what was taught + attendance. No log = the class did not happen, as far as the system (and reports) know.' },
+      { t: 'Log every class, the same day', d: 'Open the batch → log today\'s class before midnight: which planned class it was, done / partly / not done, did students push to GitHub, and attendance. No log = the class did not happen, as far as the system (and reports) know.' },
       { t: 'When a batch is flagged', d: 'Once a batch has syllabus topics, it is flagged in red if it has not logged today or has covered under 40% of its syllabus.' },
       { t: 'Plan progress comes from the syllabus', d: 'It counts topics in Batch → Plan tab that daily logs have marked as covered. “0 of 0” means no syllabus topics were added yet — add them, or the batch can never show as behind.' },
       { t: 'Next topic', d: 'The first syllabus topic not yet covered — what the next class should teach.' },
@@ -71,6 +95,7 @@ const HELP = {
     why: 'The plan is the promise; the daily class log is what actually happened. Comparing the two is how the program runs itself — anyone (coordinator, MD, a new trainer taking over) can see whether a batch is on track without asking the trainer.',
     rules: [
       { t: 'One row = one class', d: 'Number classes continuously across cycles (Cycle 3 ends at class 41 → Cycle 4 starts at 42). Never restart at 1.' },
+      { t: 'Plans are locked once made', d: 'A trainer can fill an empty plan. After that, only the admin can change it — or trainers while the admin has opened editing (e.g. in the planning meeting). Every change is recorded: who, when and what.' },
       { t: 'Plan first, log daily', d: 'Plan is filled in the planning meeting before the cycle. Each day after class, the trainer fills the daily class log on the Batch page — what was taught + attendance.' },
       { t: 'Behind plan gets flagged', d: 'The Dashboard flags batches that have not logged today or have covered under 40% of their syllabus (Batch → Plan tab). No log = it did not happen, as far as the system knows.' },
       { t: 'Dates decide the cycle', d: 'A class belongs to the cycle whose start–end dates include its date. Attendance and marks for a cycle only count classes inside those dates.' },

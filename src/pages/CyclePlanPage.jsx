@@ -11,6 +11,7 @@ export default function CyclePlanPage() {
   const [cycle, setCycle] = useState(null)
   const [trainers, setTrainers] = useState([])
   const [classes, setClasses] = useState([])
+  const [lock, setLock] = useState({ planOpen: false, canEdit: false })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [alert, setAlert] = useState(null)
@@ -21,7 +22,7 @@ export default function CyclePlanPage() {
     setLoading(true)
     try {
       const { data } = await api.get(`/cycleplans/${id}`)
-      setCycle(data.cycle); setTrainers(data.trainers)
+      setCycle(data.cycle); setTrainers(data.trainers); setLock({ planOpen: !!data.planOpen, canEdit: !!data.canEdit })
       setClasses((data.classes || []).map(c => ({
         number: c.number, title: c.title||'', notes: c.notes||'',
         trainer: c.trainer?._id || c.trainer || '', date: c.date||'', time: c.time||'',
@@ -30,25 +31,34 @@ export default function CyclePlanPage() {
     finally { setLoading(false) }
   }
 
-  const myId = user?.id || user?._id
-  const canEdit = user?.role === 'superadmin'
-    || (trainers || []).some(t => (t._id || t) === myId)
+  const isAdmin = user?.role === 'superadmin'
+  const canEdit = lock.canEdit
+  async function toggleOpen() {
+    try {
+      await api.patch('/cycleplans/board/open', { cycleId: id, open: !lock.planOpen })
+      show(lock.planOpen ? 'Plan locked — trainers can only view.' : 'Trainers can edit this plan now. Lock it when planning is done.'); load()
+    } catch (e) { show(e.response?.data?.message || 'Could not change', 'error') }
+  }
+  // Class numbers continue across cycles (e.g. Cycle 4 starts at 44) — never renumber from 1.
+  const nextNumber = (cs) => cs.length ? Math.max(...cs.map(c => Number(c.number) || 0)) + 1 : 1
 
   function addClass() {
-    setClasses(cs => [...cs, { number: cs.length+1, title:'', notes:'', trainer:'', date:'', time:'' }])
+    setClasses(cs => [...cs, { number: nextNumber(cs), title:'', notes:'', trainer:'', date:'', time:'' }])
   }
   function update(i, field, value) {
     setClasses(cs => cs.map((c,idx) => idx===i ? { ...c, [field]: value } : c))
   }
   function removeClass(i) {
-    setClasses(cs => cs.filter((_,idx)=>idx!==i).map((c,idx)=>({ ...c, number: idx+1 })))
+    setClasses(cs => cs.filter((_,idx)=>idx!==i))
   }
   function move(i, dir) {
     setClasses(cs => {
       const j = i + dir
       if (j < 0 || j >= cs.length) return cs
       const copy = [...cs]; [copy[i], copy[j]] = [copy[j], copy[i]]
-      return copy.map((c,idx)=>({ ...c, number: idx+1 }))
+      // swap positions but keep the numbers in order
+      const nums = cs.map(c => c.number)
+      return copy.map((c,idx)=>({ ...c, number: nums[idx] }))
     })
   }
 
@@ -56,7 +66,7 @@ export default function CyclePlanPage() {
     setSaving(true)
     try {
       await api.put(`/cycleplans/${id}`, { classes: classes.map((c,i)=>({
-        number: i+1, title: c.title, notes: c.notes,
+        number: Number(c.number) || i+1, title: c.title, notes: c.notes,
         trainer: c.trainer || null, date: c.date, time: c.time,
       })) })
       show('Plan saved.'); load()
@@ -69,7 +79,7 @@ export default function CyclePlanPage() {
     const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : ''
     const rows = classes.map((c,i) => `
       <tr>
-        <td style="text-align:center">${i+1}</td>
+        <td style="text-align:center">${c.number || i+1}</td>
         <td>${(c.title||'').replace(/</g,'&lt;')}</td>
         <td>${(c.notes||'').replace(/</g,'&lt;')}</td>
         <td>${fmtDate(c.date)}${c.time?` · ${c.time}`:''}</td>
@@ -112,6 +122,16 @@ export default function CyclePlanPage() {
 
       <Alert alert={alert} />
 
+      <div style={{ ...ui.card, display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', marginTop:10, padding:'10px 14px' }}>
+        <span style={{ flex:1, minWidth:220, fontSize:14 }}>
+          {isAdmin ? (lock.planOpen ? <><b>Open for trainers.</b> Lock it again when planning is done.</> : <><b>Locked for trainers.</b> Only you can edit.</>)
+            : canEdit ? <><b>Editing is open.</b> Every change is recorded with your name.</>
+            : <><b>Locked.</b> To change this plan, ask the admin — editing is opened during planning meetings.</>}
+        </span>
+        {isAdmin && <button style={ui.btnGhost} onClick={toggleOpen}>{lock.planOpen ? 'Lock plan' : 'Let trainers edit'}</button>}
+        <Link to="/plans"><button style={ui.btnGhost}>All class plans ▸</button></Link>
+      </div>
+
       {classes.length === 0 && (
         <div style={{ ...ui.card, textAlign:'center', color:'var(--muted)' }}>
           No classes planned yet.{canEdit ? ' Add the first class below.' : ''}
@@ -122,7 +142,7 @@ export default function CyclePlanPage() {
         {classes.map((c, i) => (
           <div key={i} style={ui.card}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-              <span style={{ fontWeight:700, fontSize:15 }}>Class {i+1}</span>
+              <span style={{ fontWeight:700, fontSize:15 }}>Class {c.number}</span>
               {canEdit && <div style={{ display:'flex', gap:6 }}>
                 <button style={ui.btnGhost} onClick={()=>move(i,-1)} disabled={i===0}>↑</button>
                 <button style={ui.btnGhost} onClick={()=>move(i,1)} disabled={i===classes.length-1}>↓</button>
