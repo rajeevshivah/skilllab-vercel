@@ -85,12 +85,13 @@ export default function ConnectAIPage() {
   const [client, setClient]   = useState('claude-code')
   const [copied, setCopied]   = useState('')
   const [confirmId, setConfirmId] = useState(null)
+  const [onlySaved, setOnlySaved] = useState(false)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [onlySaved])
   async function load() {
-    setLoading(true)
+    setLoading(prev => prev && !tokens.length)
     try {
-      const [t, a] = await Promise.all([api.get('/tokens'), api.get('/tokens/activity')])
+      const [t, a] = await Promise.all([api.get('/tokens'), api.get('/tokens/activity', { params: onlySaved ? { kind: 'write', limit: 100 } : { limit: 100 } })])
       setTokens(t.data.tokens || []); setMcpUrl(t.data.mcpUrl || ''); setActivity(a.data.activity || [])
     } catch (e) { setBanner({ type: 'error', msg: e.response?.data?.message || 'Could not load tokens' }) }
     finally { setLoading(false) }
@@ -131,7 +132,8 @@ export default function ConnectAIPage() {
         Let an AI app such as Claude or Cursor answer questions from Skill Lab data, e.g. "who was not evaluated in MERN Cycle 2?"
         or "which BTech 3rd students are below 50% attendance?". The AI acts as <b>you</b>:{' '}
         {isAdmin ? 'as superadmin it can see every batch.' : 'it sees only the batches you are assigned to.'}{' '}
-        For now it can only <b>read</b>. It cannot change or delete anything.
+        It can also <b>fill the cycle report, marks, Top 3, daily logs and the cycle plan</b>, but it always shows you a
+        preview first and saves only after you say yes. It cannot delete anything.
       </p>
 
       {banner && <div className={`banner banner--${banner.type}`}>{banner.msg}</div>}
@@ -189,7 +191,8 @@ export default function ConnectAIPage() {
         )}
         {snip.code && !fresh && <p className="field-hint">Replace &lt;YOUR_TOKEN&gt; with your token. If you create a token now, it is filled in for you.</p>}
         <p className="field-hint" style={{ marginTop: 12 }}>
-          Then ask things like: "Show me today's overview", "Who is below 50% attendance in MERN?", or "Compare Cycle 1 and Cycle 2 categories for BTech 3rd".
+          Then ask things like: "Show me today's overview", "Who is below 50% attendance in MERN?", or
+          "Fill the Cycle 2 report for Full Stack: behind schedule, lab internet was down twice". For changes, the AI shows a preview and waits for your yes.
         </p>
       </section>
 
@@ -233,7 +236,12 @@ export default function ConnectAIPage() {
         <h2 className="section-title" style={{ marginBottom: 4 }}>AI activity</h2>
         <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
           {isAdmin ? 'Every tool call any AI app made, for all users.' : 'Every tool call your AI apps made.'} Kept for 180 days.
+          {' '}<b>Saved</b> = data was changed. <b>Preview</b> = a change was only shown, not saved.
         </p>
+        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 14, marginBottom: 10, cursor: 'pointer' }}>
+          <input type="checkbox" checked={onlySaved} onChange={e => setOnlySaved(e.target.checked)} />
+          Show only saved changes
+        </label>
         {activity.length === 0 ? (
           <p className="muted" style={{ fontSize: 14 }}>Nothing yet.</p>
         ) : (
@@ -248,7 +256,12 @@ export default function ConnectAIPage() {
                     <td data-label="App" className="muted">{a.tokenName || '—'}</td>
                     <td data-label="Tool" className="data">{a.tool}</td>
                     <td data-label="Details" className="data muted" title={a.args} style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>{a.args === '{}' ? '' : a.args}</td>
-                    <td data-label="Result">{a.ok ? <span className="tag tag--tick">OK</span> : <span className="tag tag--red" title={a.error}>Refused</span>}</td>
+                    <td data-label="Result">
+                      {!a.ok ? <span className="tag tag--red" title={a.error}>Refused</span>
+                        : a.kind === 'write' ? <span className="tag tag--blue">Saved</span>
+                        : a.kind === 'preview' ? <span className="tag tag--pencil">Preview</span>
+                        : <span className="tag tag--tick">Read</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
