@@ -1,6 +1,7 @@
 // Trainer Performance — what management sees, visible to every trainer too.
-// Per cycle: deadline, who finished report/marks/Top 3/plan and when (trainer
-// or admin), daily-log punctuality, and a score out of 100.
+// Grouped by deadline period. Per batch: deadline, who finished report/marks/
+// Top 3/plan and when (trainer or admin), lead + task owners, per-trainer
+// scores, and "waiting on" requests that the admin approves.
 import { Fragment, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
@@ -11,6 +12,8 @@ const IST = { timeZone: 'Asia/Kolkata' }
 const fmtDT = (d) => d ? new Date(d).toLocaleString('en-IN', { ...IST, weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—'
 const fmtDay = (ymd) => ymd ? new Date(ymd + 'T12:00:00+05:30').toLocaleDateString('en-IN', { ...IST, weekday: 'short', day: 'numeric', month: 'short' }) : '—'
 const toIstInput = (d) => d ? new Date(new Date(d).getTime() + 330 * 60000).toISOString().slice(0, 16) : ''
+const TASKS = [['report', 'Cycle form'], ['marks', 'Marks'], ['top3', 'Top 3'], ['plan', 'Cycle plan']]
+const periodLabel = (p) => `Due ${fmtDay(p.key)} · Cycle${p.numbers.length > 1 ? 's' : ''} ${p.numbers.join(', ')} · ${p.batches} batch${p.batches === 1 ? '' : 'es'}${p.tracked ? '' : ' (not tracked)'}`
 
 const STATE = {
   'on-time': ['On time', 'tag--tick'],
@@ -52,7 +55,103 @@ function ItemLine({ label, item, who }) {
   )
 }
 
-function Details({ r, isAdmin, onSaved }) {
+function Owners({ r, isAdmin, save }) {
+  const [lead, setLead] = useState(r.lead?.id || '')
+  const [own, setOwn] = useState(Object.fromEntries(TASKS.map(([k]) => [k, r.owners?.[k]?.id || ''])))
+  if (!r.trainers.length) return null
+  if (!isAdmin || r.trainers.length < 2) return (
+    <div style={{ fontSize: 13.5, margin: '0 0 10px' }}>
+      <b>Lead:</b> {r.lead?.name || '—'}{r.trainers.length > 1 && <> · {TASKS.map(([k, l]) => <span key={k}>{l}: <b>{r.owners?.[k]?.name || '—'}</b>{k !== 'plan' ? ' · ' : ''}</span>)}</>}
+    </div>
+  )
+  const sel = (v, on) => (
+    <select className="ctl" style={{ height: 30, width: 'auto' }} value={v} onChange={e => on(e.target.value)}>
+      {r.trainers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+    </select>
+  )
+  return (
+    <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 10, padding: 10, margin: '0 0 12px' }}>
+      <div style={{ fontWeight: 700, marginBottom: 6 }}>Who is responsible (admin)</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', fontSize: 13 }}>
+        <label>Lead {sel(lead, (v) => { setLead(v); setOwn(o => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, x === lead ? v : x]))) })}</label>
+        {TASKS.map(([k, l]) => <label key={k}>{l} {sel(own[k], (v) => setOwn(o => ({ ...o, [k]: v })))}</label>)}
+        <button className="btn btn--primary btn--sm" onClick={() => save({ lead, owners: own })}>Save</button>
+      </div>
+      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Only the owner of a task is scored for it. Each class day counts for the trainer set on that class in the cycle plan.</div>
+    </div>
+  )
+}
+
+function Waits({ r, isAdmin, me, onSaved }) {
+  const [item, setItem] = useState('')
+  const [on, setOn] = useState('')
+  const [note, setNote] = useState('')
+  const [msg, setMsg] = useState('')
+  const mine = ['report', 'marks', 'top3'].filter(k => r.owners?.[k]?.id === me && !r.items[k]?.at)
+  const others = r.trainers.filter(t => t.id !== me)
+  async function raise() {
+    setMsg('Sending…')
+    try { await api.post(`/performance/cycle/${r.cycleId}/wait`, { item, waitingOn: on, note }); setMsg('Sent — waiting for admin approval.'); onSaved() }
+    catch (e) { setMsg(e.response?.data?.message || 'Could not send') }
+  }
+  async function decide(id, status) {
+    try { await api.patch(`/performance/cycle/${r.cycleId}/wait/${id}`, { status }); onSaved() }
+    catch (e) { setMsg(e.response?.data?.message || 'Could not save') }
+  }
+  if (!r.waits.length && !(mine.length && others.length)) return null
+  const label = Object.fromEntries(TASKS)
+  return (
+    <div style={{ margin: '12px 0 0' }}>
+      <div className="muted" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Waiting on another trainer</div>
+      {r.waits.map(w => (
+        <div key={w.id} style={{ fontSize: 13.5, padding: '4px 0', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className={`tag ${w.status === 'approved' ? 'tag--blue' : w.status === 'rejected' ? 'tag--muted' : 'tag--pencil'}`}>{w.status}</span>
+          <span><b>{w.owner}</b> waiting on <b>{w.waitingOn}</b> for {label[w.item]} · {fmtDT(w.raisedAt)}{w.note ? ` — “${w.note}”` : ''}</span>
+          {isAdmin && w.status === 'pending' && <>
+            <button className="btn btn--primary btn--sm" onClick={() => decide(w.id, 'approved')}>Approve</button>
+            <button className="btn btn--secondary btn--sm" onClick={() => decide(w.id, 'rejected')}>Reject</button>
+          </>}
+        </div>
+      ))}
+      {mine.length > 0 && others.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 6, fontSize: 13 }}>
+          <select className="ctl" style={{ height: 30, width: 'auto' }} value={item} onChange={e => setItem(e.target.value)}>
+            <option value="">My task…</option>{mine.map(k => <option key={k} value={k}>{label[k]}</option>)}
+          </select>
+          <select className="ctl" style={{ height: 30, width: 'auto' }} value={on} onChange={e => setOn(e.target.value)}>
+            <option value="">is waiting on…</option>{others.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <input className="ctl" style={{ height: 30, width: 220 }} placeholder="What are you waiting for?" value={note} maxLength={300} onChange={e => setNote(e.target.value)} />
+          <button className="btn btn--secondary btn--sm" disabled={!item || !on} onClick={raise}>Send to admin</button>
+        </div>
+      )}
+      {msg && <div className="muted" style={{ fontSize: 12 }}>{msg}</div>}
+    </div>
+  )
+}
+
+function PerTrainer({ r }) {
+  if (r.perTrainer.length < 2) return null
+  const lbl = { report: 'form', marks: 'marks', top3: 'Top 3', plan: 'plan' }
+  return (
+    <div style={{ margin: '12px 0 0' }}>
+      <div className="muted" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Each trainer's own part</div>
+      {r.perTrainer.map(p => {
+        const blocked = Object.entries(p.items).filter(([, i]) => i.blocking).map(([k]) => lbl[k])
+        return (
+          <div key={p.id} style={{ fontSize: 13.5, padding: '3px 0', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <b style={{ minWidth: 150 }}>{p.name}{p.isLead ? ' ★ lead' : ''}</b>
+            <span className="muted">owns: {p.owns.map(k => lbl[k]).join(', ') || 'none'} · class days: {p.items.logs?.days ?? 0}</span>
+            {blocked.length > 0 && <span className="tag tag--red">held up: {blocked.join(', ')}</span>}
+            <span style={{ marginLeft: 'auto' }}>{r.tracked ? <ScoreBar score={p.score} /> : <span className="muted">not tracked</span>}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function Details({ r, isAdmin, me, onSaved }) {
   const [projectDate, setProjectDate] = useState(r.projectDate || '')
   const [deadline, setDeadline] = useState(toIstInput(r.deadline))
   const [excuse, setExcuse] = useState(r.excusedNote || '')
@@ -66,6 +165,7 @@ function Details({ r, isAdmin, onSaved }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 18, padding: '6px 4px 4px' }}>
       <div>
+        <Owners r={r} isAdmin={isAdmin} save={save} />
         <div className="muted" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Cycle-end work (due {fmtDT(r.deadline)})</div>
         <ItemLine label="Cycle form" item={r.items.report} who={r.who.report} />
         <ItemLine label="Marks" item={r.items.marks} who={r.who.marks} />
@@ -79,6 +179,8 @@ function Details({ r, isAdmin, onSaved }) {
           {r.lateEdits > 0 && <div><b>Changes after the deadline:</b> {r.lateEdits}</div>}
           {r.excusedNote && <div><b>Excused:</b> {r.excusedNote}</div>}
         </div>
+        <PerTrainer r={r} />
+        <Waits r={r} isAdmin={isAdmin} me={me} onSaved={onSaved} />
       </div>
       {isAdmin && (
         <div style={{ background: 'var(--page)', border: '1px solid var(--rule)', borderRadius: 10, padding: 12, alignSelf: 'start' }}>
@@ -106,28 +208,29 @@ export default function PerformancePage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'superadmin'
   const [data, setData] = useState(null)
-  const [number, setNumber] = useState(null)
+  const [period, setPeriod] = useState(null)
   const [open, setOpen] = useState(null)
   const [err, setErr] = useState('')
   const [roundDeadline, setRoundDeadline] = useState('')
 
-  async function load(n = number) {
+  const me = String(user?.id || user?._id || '')
+  async function load(p = period) {
     try {
-      const { data } = await api.get('/performance', { params: n ? { number: n } : {} })
-      setData(data); setNumber(data.number); setErr('')
+      const { data } = await api.get('/performance', { params: p ? { period: p } : {} })
+      setData(data); setPeriod(data.period); setErr('')
     } catch (e) { setErr(e.response?.data?.message || 'Could not load') }
   }
   useEffect(() => { load(null) }, [])
 
   async function patchRound(body) {
-    try { await api.patch(`/performance/round/${number}`, body); await load(number) }
+    try { await api.patch(`/performance/period/${period}`, body); await load(period) }
     catch (e) { setErr(e.response?.data?.message || 'Could not save') }
   }
 
   if (err && !data) return <div className="page"><div className="banner banner--error">{err}</div></div>
   if (!data) return <div className="page"><p className="muted">Loading…</p></div>
 
-  const round = data.rounds.find(r => r.number === data.number)
+  const round = (data.periods || []).find(p => p.key === data.period)
   const rows = data.rows || []
   const count = (s) => rows.filter(r => r.overall === s).length
 
@@ -142,18 +245,18 @@ export default function PerformancePage() {
       </p>
       {err && <div className="banner banner--error">{err}</div>}
 
-      {data.rounds.length === 0 ? <div className="empty"><h2>No cycles yet</h2><p>Cycles appear here once they are created.</p></div> : (<>
+      {!(data.periods || []).length ? <div className="empty"><h2>No cycles yet</h2><p>Cycles appear here once they are created.</p></div> : (<>
         <div data-tour="perf-cycle" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
-          <label style={{ fontWeight: 600 }}>Cycle&nbsp;
-            <select className="ctl" style={{ height: 34, width: 'auto' }} value={number || ''} onChange={e => { setOpen(null); load(Number(e.target.value)) }}>
-              {data.rounds.map(r => <option key={r.number} value={r.number}>Cycle {r.number}{r.tracked ? '' : ' (not tracked)'}</option>)}
+          <label style={{ fontWeight: 600 }}>Show&nbsp;
+            <select className="ctl" style={{ height: 34, width: 'auto' }} value={period || ''} onChange={e => { setOpen(null); load(e.target.value) }}>
+              {data.periods.map(p => <option key={p.key} value={p.key}>{periodLabel(p)}</option>)}
             </select>
           </label>
           {round && !round.tracked && <span className="tag tag--muted">Not tracked — shown for information, no score</span>}
           {isAdmin && round && (
             <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginLeft: 'auto' }}>
               <button className="btn btn--secondary btn--sm" onClick={() => patchRound({ tracked: !round.tracked })}>
-                {round.tracked ? 'Stop tracking this cycle' : 'Start tracking this cycle'}
+                {round.tracked ? 'Stop tracking these cycles' : 'Start tracking these cycles'}
               </button>
               <input className="ctl" type="datetime-local" value={roundDeadline} onChange={e => setRoundDeadline(e.target.value)} style={{ height: 30, width: 'auto' }} title="Same deadline for every batch (India time)" />
               <button className="btn btn--secondary btn--sm" disabled={!roundDeadline} onClick={() => patchRound({ deadline: roundDeadline })}>Set deadline for all</button>
@@ -191,16 +294,17 @@ export default function PerformancePage() {
           </table>
         </div>
 
-        <h2 style={{ fontSize: 17, fontWeight: 700, margin: '18px 0 8px' }}>Batches — Cycle {data.number}</h2>
+        <h2 style={{ fontSize: 17, fontWeight: 700, margin: '18px 0 8px' }}>Batches — due {fmtDay(data.period)}</h2>
         <div className="table-wrap sheet" data-tour="perf-batches" style={{ borderRadius: 10 }}>
           <table className="table table--compact">
-            <thead><tr><th>Batch</th><th>Trainer(s)</th><th>Project day</th><th>Deadline</th><th>Completed</th><th>Status</th><th>Score</th><th></th></tr></thead>
+            <thead><tr><th>Batch</th><th>Trainer(s) · ★ lead</th><th>Project day</th><th>Deadline</th><th>Completed</th><th>Status</th><th>Score</th><th></th></tr></thead>
             <tbody>
               {rows.map(r => (
                 <Fragment key={r.cycleId}>
                   <tr className={r.overall === 'late' || r.overall === 'missing' ? 'is-flagged' : ''}>
-                    <td><b>{r.batch}</b><div className="muted" style={{ fontSize: 12 }}>{r.track}</div></td>
-                    <td>{r.trainers.map(t => t.name).join(', ') || '—'}</td>
+                    <td><b>{r.batch}</b><div className="muted" style={{ fontSize: 12 }}>Cycle {r.number}{r.track ? ` · ${r.track}` : ''}</div></td>
+                    <td>{r.trainers.map(t => t.id === r.lead?.id && r.trainers.length > 1 ? `★ ${t.name}` : t.name).join(', ') || '—'}
+                      {r.waits.some(w => w.status === 'pending') && <div><span className="tag tag--pencil">waiting request</span></div>}</td>
                     <td>{fmtDay(r.projectDate)}</td>
                     <td>{fmtDT(r.deadline)}</td>
                     <td>{r.completedAt ? fmtDT(r.completedAt) : <span className="muted">—</span>}</td>
@@ -214,7 +318,7 @@ export default function PerformancePage() {
                   </tr>
                   {open === r.cycleId && (
                     <tr><td colSpan={8} style={{ background: 'var(--page)' }}>
-                      <Details r={r} isAdmin={isAdmin} onSaved={() => load(number)} />
+                      <Details r={r} isAdmin={isAdmin} me={me} onSaved={() => load(period)} />
                     </td></tr>
                   )}
                 </Fragment>
