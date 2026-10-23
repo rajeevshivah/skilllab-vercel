@@ -77,7 +77,7 @@ function ProjectCard({ cycle, project, onDone }) {
   const s = project.submission
   const [gh, setGh] = useState(s?.githubUrl || ''), [live, setLive] = useState(s?.liveUrl || ''), [note, setNote] = useState(s?.note || '')
   const [shot, setShot] = useState(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState(null)
-  const canSubmit = project.state === 'open' || project.state === 'late'
+  const canSubmit = project.state === 'open'
   async function pick(e) {
     const f = e.target.files?.[0]; if (!f) return
     try { setShot(await readImage(f)) } catch (err) { setMsg({ ok: false, t: err.message }) }
@@ -86,7 +86,7 @@ function ProjectCard({ cycle, project, onDone }) {
     setBusy(true); setMsg(null)
     try {
       await studentApi.post('/student/submission', { cycleId: cycle.id, githubUrl: gh, liveUrl: live, note, ...(shot ? { screenshot: shot } : {}) })
-      setMsg({ ok: true, t: 'Submitted. You can submit again to change it while the box is open.' }); setShot(null); onDone()
+      setMsg({ ok: true, t: 'Submitted. You can submit again to change it while submission is open.' }); setShot(null); onDone()
     } catch (e) { setMsg({ ok: false, t: e.response?.data?.message || 'Could not submit' }) }
     finally { setBusy(false) }
   }
@@ -94,13 +94,11 @@ function ProjectCard({ cycle, project, onDone }) {
     <Card title={`Cycle ${cycle.number} project`} accent={canSubmit ? 'var(--tick)' : undefined} tour="st-project">
       <p style={{ fontSize: 14, marginBottom: 10 }}>
         Project day: <b>{fmtDay(project.projectDay)}</b>.{' '}
-        {project.state === 'not-yet' && <>Submission opens {fmtDT(project.from)}.</>}
-        {project.state === 'open' && <>Submission is <b style={{ color: 'var(--tick)' }}>open</b> until {fmtDT(project.until)}.</>}
-        {project.state === 'late' && <><b style={{ color: 'var(--red-ink)' }}>Late submission</b> — still accepted until {fmtDT(project.lateUntil)}, marked late.</>}
-        {project.state === 'closed' && <>Submission is closed.</>}
+        {canSubmit ? <>Submission is <b style={{ color: 'var(--tick)' }}>open</b> until {fmtDT(project.closesAt)}.</>
+          : <>Submission is closed — your trainer opens it in class on project day.</>}
       </p>
       {s && <div className="banner banner--success" style={{ marginBottom: 12 }}>
-        Submitted {fmtDT(s.submittedAt)}{s.late ? ' (late)' : ''} — <a href={s.githubUrl} target="_blank" rel="noreferrer">{s.githubUrl}</a>{s.liveUrl && <> · <a href={s.liveUrl} target="_blank" rel="noreferrer">live</a></>}{s.hasScreenshot ? ' · screenshot ✓' : ''}
+        Submitted {fmtDT(s.submittedAt)}{s.late ? ' (after project day)' : ''} — <a href={s.githubUrl} target="_blank" rel="noreferrer">{s.githubUrl}</a>{s.liveUrl && <> · <a href={s.liveUrl} target="_blank" rel="noreferrer">live</a></>}{s.hasScreenshot ? ' · screenshot ✓' : ''}
       </div>}
       {canSubmit && (
         <div style={{ display: 'grid', gap: 10 }}>
@@ -215,6 +213,7 @@ export default function StudentHomePage() {
         </div>
       </header>
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '18px 16px 60px', display: 'grid', gap: 14 }}>
+        {me.holidayToday && <Card accent="var(--blue-ink)"><b>No class today</b> — {me.holidayToday}.</Card>}
         {me.pulseToday && <PulseCard p={me.pulseToday} onDone={load} />}
         {me.feedback.map(f => <FeedbackCard key={f.windowId} f={f} questions={me.questions} onDone={load} />)}
         {me.cycle && me.project && <ProjectCard cycle={me.cycle} project={me.project} onDone={load} />}
@@ -230,7 +229,7 @@ export default function StudentHomePage() {
                     <span className="muted" style={{ fontSize: 13 }}>{fmtDay(c.date)}</span>
                     <span style={{ fontWeight: c.when === 'today' ? 700 : 500, color: c.when === 'past' ? 'var(--ink-soft)' : 'var(--ink)' }}>
                       <span className="muted" style={{ fontSize: 12 }}>Class {c.number} · </span>{c.title}</span>
-                    <span>{c.when === 'today' ? <span className="tag tag--blue">Today</span>
+                    <span>{c.holiday ? <span className="tag tag--pencil" title={c.holiday}>Holiday</span> : c.when === 'today' ? <span className="tag tag--blue">Today</span>
                       : c.when === 'past' ? (c.myPulse ? <span className="tag tag--tick" title="Your answer">{COVER[c.myPulse.covered]}</span> : <span className="tag tag--muted">Done</span>) : null}</span>
                   </li>
                 ))}

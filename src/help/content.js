@@ -46,7 +46,8 @@ const HELP = {
     why: 'Planning together is faster when everyone sees the whole picture. And because the plan is locked, the plan everyone agreed on is the plan that is followed — any change is visible with the name of who made it.',
     rules: [
       { t: 'Who can edit', d: 'The admin always can. Trainers can edit only while the admin has clicked “Let trainers edit” (for planning meetings). Locked again with one click. Every change is saved with the name and time.' },
-      { t: 'Class moved or cancelled?', d: 'Tell the admin. The admin moves the class to its new date (or marks the day “No class” in the batch log), so nobody is marked as missing a log.' },
+      { t: 'Holidays and cancelled days', d: 'The admin marks them in Settings → Holidays (one day or a range, all batches or some). Classes on those days can be moved forward automatically to each batch’s next class days — the preview shows every move first, and removing the holiday moves them back. Nobody is expected to log on a holiday.' },
+      { t: 'Class moved for another reason?', d: 'Tell the admin, who moves it here (or opens editing for you), so nobody is marked as missing a log.' },
       { t: 'Log status under each past class', d: 'Green = logged and complete. Yellow = logged but missing something (planned class, GitHub push, or what was taught). Red = not logged. Blue = no class that day.' },
       { t: 'What students say', d: 'After each class students answer two anonymous questions on their own page: was today’s topic covered, and how well did they understand it (1–5). The totals show under each class. A red ⚠ means the log says “Done as planned” but most students (5+ answers) say it wasn’t covered.' },
       { t: 'The log rule', d: 'Log on the class day, before midnight, by the trainer who taught: which planned class, done / partly / not done, did students push to GitHub, and attendance. Not done as planned → write what was taught.' },
@@ -136,6 +137,7 @@ const HELP = {
       { el: 'marks-held', title: 'Was an MCQ held?', text: 'Assessment is optional. Untick this when only the project was evaluated — scores then become project /100.' },
       { el: 'marks-filters', title: 'Categories at a glance', text: 'Counts per category. Click one to see only those students — e.g. “Basic” to plan extra help.' },
       { el: 'marks-table', title: 'Enter marks', text: 'Set Status, then marks. Category fills itself from the score; change it only with a reason. Use Remark for anything the next trainer should know.' },
+      { el: 'marks-subs', title: 'Student project submission', text: 'Closed until you open it. In the project class click “Open submission”; students submit GitHub + live link + screenshot from their phone and the links appear in each row. Close it when the class ends (it closes by itself at the time you chose).' },
       { el: 'marks-save', title: 'Save, then Top 3', text: 'Save marks, then open the cycle report to confirm Top 3. Nothing is saved until you click Save.' },
     ],
     video: '',

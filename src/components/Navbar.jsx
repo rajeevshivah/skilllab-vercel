@@ -62,6 +62,7 @@ export default function Navbar() {
               <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Semesters</Link>
               <Link to="/users" className={is('/users') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Users</Link>
               <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Duplicates</Link>
+              <Link to="/settings" className={is('/settings') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Settings (holidays, timetables)</Link>
             </div>
           )}
         </div>
@@ -113,6 +114,7 @@ export default function Navbar() {
               <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''}>Semesters</Link>
               <Link to="/users" className={is('/users') ? 'is-active' : ''}>Users</Link>
               <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''}>Duplicates</Link>
+              <Link to="/settings" className={is('/settings') ? 'is-active' : ''}>Settings</Link>
             </>
           )}
         </div>

@@ -17,6 +17,7 @@ const periodLabel = (p) => `${fmtDay(p.start)} – ${fmtDay(p.end)} · Cycle${p.
 
 function LogChip({ c, ruleFrom }) {
   const t = todayYmd()
+  if (c.holiday) return <span className="tag tag--pencil">Holiday: {c.holiday} — re-plan this class</span>
   if (!c.date || c.date > t) return null
   const l = c.log
   if (!l) return c.date === t ? <span className="tag tag--muted">Today — log before midnight</span> : <span className="tag tag--red">Not logged</span>
@@ -58,7 +59,7 @@ export default function PlanBoardPage() {
   const [err, setErr] = useState(null)
   const [msg, setMsg] = useState(null)
   const [view, setView] = useState('day')
-  const [mineOnly, setMineOnly] = useState(false)
+  const [mineOnly, setMineOnly] = useState(null)   // null until data arrives: trainers start on "my batches"
   const [editing, setEditing] = useState(null)   // `${cycleId}:${number}` or `${cycleId}:new`
   const [saving, setSaving] = useState(false)
   const [openNotes, setOpenNotes] = useState({})
@@ -68,6 +69,7 @@ export default function PlanBoardPage() {
     try {
       const { data } = await api.get('/cycleplans/board', { params: period ? { period } : {} })
       setData(data); setErr(null)
+      setMineOnly(m => m === null ? (!data.isAdmin && (data.cycles || []).some(c => c.mine)) : m)
     } catch (e) { setErr(e.response?.data?.message || 'Could not load plans') }
   }
   useEffect(() => { load() }, [])
@@ -120,6 +122,12 @@ export default function PlanBoardPage() {
       if (!byDay.has(x.date)) byDay.set(x.date, [])
       byDay.get(x.date).push({ cy, extra: x })
     }
+  }
+  // Holiday days show even when no class is left on them
+  const holOn = (d) => (data.holidays || []).filter(h => d && d >= h.from && d <= h.to)
+  for (const h of data.holidays || []) {
+    for (let d = h.from; d <= h.to; d = new Date(new Date(d + 'T12:00:00Z').getTime() + 864e5).toISOString().slice(0, 10))
+      if (d >= data.start && d <= data.end && !byDay.has(d)) byDay.set(d, [])
   }
   const days = [...byDay.keys()].sort((a, b) => (a || '9999').localeCompare(b || '9999'))
 
@@ -187,7 +195,7 @@ export default function PlanBoardPage() {
           ))}
         </div>
         {!data.isAdmin && <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 14 }}>
-          <input type="checkbox" checked={mineOnly} onChange={e => setMineOnly(e.target.checked)} /> Only my batches</label>}
+          <input type="checkbox" checked={!!mineOnly} onChange={e => setMineOnly(e.target.checked)} /> Only my batches</label>}
       </div>
 
       <div data-tour="board-lock">
@@ -215,7 +223,8 @@ export default function PlanBoardPage() {
           {days.map(d => (
             <div key={d || 'none'} className="sheet" style={{ overflow: 'hidden', ...(d === t ? { borderColor: 'var(--blue-ink)', borderWidth: 2 } : {}) }}>
               <div style={{ padding: '10px 14px', background: d === t ? 'var(--blue-wash)' : 'var(--page)', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
-                <span>{fmtDay(d)}{d === t ? ' · Today' : ''}</span>
+                <span>{fmtDay(d)}{d === t ? ' · Today' : ''}
+                  {holOn(d).map((h, i) => <span key={i} className="tag tag--pencil" style={{ marginLeft: 8 }}>Holiday: {h.title}{h.batches.length ? ` (${h.batches.join(', ')})` : ''}</span>)}</span>
                 <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>{byDay.get(d).filter(x => x.c).length} class{byDay.get(d).filter(x => x.c).length === 1 ? '' : 'es'}</span>
               </div>
               {byDay.get(d).sort((a, b) => a.cy.batch.name.localeCompare(b.cy.batch.name)).map(x => x.c ? row(x.cy, x.c) : extraRow(x.cy, x.extra))}

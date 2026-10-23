@@ -29,7 +29,7 @@ export default function CycleMarksPage() {
   const [sticky, setSticky] = useState(() => new Set())
   const [togglingHeld, setTogglingHeld] = useState(false)
   const [subs, setSubs] = useState(null)        // { window, byStudent: Map }
-  const [winEdit, setWinEdit] = useState(null)  // { from, until } while editing
+  const [openFor, setOpenFor] = useState('')    // '' = until midnight, else minutes
   const cellRefs = useRef({})
   const show = (msg, type = 'success') => { setAlert({ msg, type }); setTimeout(() => setAlert(null), 4500) }
 
@@ -65,13 +65,12 @@ export default function CycleMarksPage() {
       if (w) { w.document.write(`<title>Screenshot</title><body style="margin:0;background:#111"><img src="${data.dataUrl}" style="max-width:100%;display:block;margin:auto"></body>`); w.document.close() }
     } catch (e) { if (w) w.close(); show(e.response?.data?.message || 'No screenshot', 'error') }
   }
-  async function saveWindow(reset) {
+  async function setSubmission(open, minutes) {
     try {
-      await api.patch(`/student-admin/cycle/${id}/window`, reset ? { from: '', until: '' } : winEdit)
-      setWinEdit(null); show('Submission window saved.'); loadSubs()
-    } catch (e) { show(e.response?.data?.message || 'Could not save', 'error') }
+      await api.post(`/student-admin/cycle/${id}/submission`, open ? { open: true, ...(minutes ? { minutes } : {}) } : { open: false })
+      show(open ? 'Submission is open — students can submit from their page now.' : 'Submission closed.'); loadSubs()
+    } catch (e) { show(e.response?.data?.message || 'Could not change', 'error') }
   }
-  const istInput = (d) => d ? new Date(new Date(d).getTime() + 330 * 60000).toISOString().slice(0, 16) : ''
   const fmtW = (d) => d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '' 
 
   const myId = user?.id || user?._id
@@ -257,19 +256,24 @@ export default function CycleMarksPage() {
       {alert && <div className={`banner banner--${alert.type === 'success' ? 'success' : 'error'}`}>{alert.msg}</div>}
 
       {subs && (
-        <div className="sheet" data-tour="marks-subs" style={{ padding: '10px 14px', marginBottom: 14, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', fontSize: 14 }}>
-          <span><b>Project submissions:</b> {subs.count} of {rows.length} submitted online.</span>
-          <span className="muted">Students submit {fmtW(subs.window.from)} → {fmtW(subs.window.until)}{subs.window.custom ? '' : ' (whole project day)'}; late until {fmtW(subs.window.lateUntil)}.</span>
-          {canEdit && !winEdit && <button className="btn btn--quiet btn--sm" onClick={() => setWinEdit({ from: istInput(subs.window.from), until: istInput(subs.window.until) })}>Change window</button>}
-          {canEdit && winEdit && (
-            <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <input type="datetime-local" className="ctl" style={{ width: 200, height: 32 }} value={winEdit.from} onChange={e => setWinEdit(w => ({ ...w, from: e.target.value }))} />
-              →<input type="datetime-local" className="ctl" style={{ width: 200, height: 32 }} value={winEdit.until} onChange={e => setWinEdit(w => ({ ...w, until: e.target.value }))} />
-              <button className="btn btn--primary btn--sm" onClick={() => saveWindow(false)}>Save</button>
-              <button className="btn btn--secondary btn--sm" onClick={() => saveWindow(true)}>Reset to project day</button>
-              <button className="btn btn--quiet btn--sm" onClick={() => setWinEdit(null)}>Cancel</button>
-            </span>
-          )}
+        <div className="sheet" data-tour="marks-subs" style={{ padding: '12px 14px', marginBottom: 14, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', fontSize: 14,
+          borderLeft: `4px solid ${subs.window.open ? 'var(--tick)' : 'var(--rule-strong)'}` }}>
+          <span style={{ flex: 1, minWidth: 260 }}>
+            <b>Student project submission: </b>
+            {subs.window.open
+              ? <><span className="tag tag--tick">OPEN</span> until {fmtW(subs.window.until)}</>
+              : <><span className="tag tag--muted">CLOSED</span>{subs.window.until ? <span className="muted"> · last closed {fmtW(subs.window.until)}</span> : ''}</>}
+            <span className="muted"> · {subs.count} of {rows.length} submitted</span>
+          </span>
+          {canEdit && (subs.window.open
+            ? <button className="btn btn--primary btn--sm" onClick={() => setSubmission(false)}>Close submission</button>
+            : <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                <select className="ctl" style={{ width: 'auto', height: 32 }} value={openFor} onChange={e => setOpenFor(e.target.value)}>
+                  <option value="">until midnight</option><option value="30">for 30 min</option><option value="60">for 1 hour</option><option value="120">for 2 hours</option>
+                </select>
+                <button className="btn btn--primary btn--sm" onClick={() => setSubmission(true, Number(openFor) || 0)}>Open submission</button>
+              </span>)}
+          {canEdit && !subs.window.open && <span className="muted" style={{ fontSize: 12, width: '100%' }}>Open it in the project class; students submit from their phone. It closes by itself at the time you pick (latest midnight). Submissions after the project day are marked late.</span>}
         </div>
       )}
 
