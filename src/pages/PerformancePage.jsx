@@ -19,6 +19,7 @@ const STATE = {
   'on-time': ['On time', 'tag--tick'],
   late:      ['Late', 'tag--red'],
   admin:     ['Done by admin', 'tag--pencil'],
+  'admin-planned': ['Made by admin · not counted', 'tag--blue'],
   missing:   ['Not done', 'tag--red'],
   pending:   ['Pending', 'tag--muted'],
   excused:   ['Excused', 'tag--blue'],
