@@ -33,6 +33,7 @@ export default function CycleReportPage() {
   const { user } = useAuth()
   const [cycle, setCycle] = useState(null)
   const [live, setLive] = useState(null)
+  const [rs, setRs] = useState({ open: false, opensOn: '', note: '' })
   const [form, setForm] = useState({})
   const [roster, setRoster] = useState([])
   const [top3, setTop3] = useState([
@@ -51,6 +52,7 @@ export default function CycleReportPage() {
     try {
       const { data } = await api.get(`/cycles/${id}`)
       setCycle(data.cycle); setLive(data.live)
+      setRs({ open: !!data.reportOpen, opensOn: data.reportOpensOn || '', note: data.reportNote || '' })
       // load roster for the top-3 picker
       const batchId = data.cycle.batch?._id || data.cycle.batch
       if (batchId) {
@@ -98,7 +100,9 @@ export default function CycleReportPage() {
   const myId = user?.id || user?._id
   const assigned = user?.role === 'superadmin' || (cycle.batch?.trainers || []).some(t => (t._id || t) === myId)
   const closed = cycle.status === 'closed'
-  const canFill = assigned && !closed && (cycle.status === 'report-open' || user?.role === 'superadmin')
+  // The server decides: trainers can fill it from the batch's project day (or earlier if admin opened it)
+  const canFill = assigned && !closed && rs.open
+  const manual3 = !!cycle.report?.top3Manual
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const numOrNull = (v) => v === '' || v == null ? null : Number(v)
@@ -123,15 +127,12 @@ export default function CycleReportPage() {
       setTop3(arr => arr.map(t => t.rank===rank ? { ...t, photo } : t))
     } catch (e) { show(e.message, 'error') }
   }
-  async function suggestFromMarks() {
+  // Top 3 normally comes from the marks by itself. After a hand change, this puts it back.
+  async function backToAutomatic() {
     try {
-      const { data } = await api.get(`/marks/${id}/top3-suggestion`)
-      if (!data.top3.length) return show('No evaluated marks yet to suggest from', 'error')
-      setTop3(arr => arr.map(t => {
-        const s = data.top3.find(x => x.rank === t.rank)
-        return s ? { ...t, student: s.student, name: s.name, roll: s.roll } : t
-      }))
-      show('Top 3 filled from marks — add GitHub links and photos, then save.')
+      await api.put(`/cycles/${id}/report`, { top3Auto: true })
+      show('Top 3 is automatic again — picked from the marks.')
+      load()
     } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
 
@@ -186,8 +187,8 @@ export default function CycleReportPage() {
       {!closed && !assigned && <div style={{ background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.35)', color:'var(--gold)', padding:'10px 14px', borderRadius:9, fontSize:13, marginBottom:16 }}>
         View only — you're not assigned to this batch.
       </div>}
-      {!closed && assigned && cycle.status==='active' && user?.role!=='superadmin' && <div style={{ background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.35)', color:'var(--gold)', padding:'10px 14px', borderRadius:9, fontSize:13, marginBottom:16 }}>
-        The report isn't open yet. You'll be able to fill it once admin opens it for this cycle.
+      {!closed && assigned && !rs.open && <div style={{ background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.35)', color:'var(--gold)', padding:'10px 14px', borderRadius:9, fontSize:13, marginBottom:16 }}>
+        {rs.note || "The report isn't open yet."} It opens by itself on that day — nobody has to unlock it.
       </div>}
 
       <Alert alert={alert} />
@@ -253,7 +254,14 @@ export default function CycleReportPage() {
         {/* Top 3 */}
         <div style={{ ...ui.card, marginBottom:16 }}>
           <h2 style={ui.h2}>Top 3 <span style={{ ...ui.sub, fontFamily:'var(--font-b)' }}>· shown on the public Hall of Fame</span></h2>
-          {canFill && <button style={{ ...ui.btnGhost, marginBottom:12 }} type="button" onClick={suggestFromMarks}>Auto-fill from marks</button>}
+          <p style={{ ...ui.sub, marginTop:0, marginBottom:12 }}>
+            {manual3
+              ? 'Chosen by hand — new marks will not change it.'
+              : top3.some(t => t.name)
+                ? 'Picked automatically from the marks (highest total; ties go to the higher project mark). Add photos or change it if needed.'
+                : 'Fills in by itself once every student has a mark (or “Not evaluated”) on the Marks page.'}
+          </p>
+          {canFill && manual3 && <button style={{ ...ui.btnGhost, marginBottom:12 }} type="button" onClick={backToAutomatic}>Back to automatic (from marks)</button>}
           <div style={{ display:'grid', gap:14 }}>
             {top3.map(t => (
               <div key={t.rank} style={{ ...ui.cardSm, display:'grid', gridTemplateColumns:'auto 1fr', gap:14, alignItems:'start' }}>

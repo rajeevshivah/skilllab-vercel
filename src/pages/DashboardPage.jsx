@@ -41,7 +41,8 @@ export default function DashboardPage() {
     finally { setLoading(false) }
   }
 
-  const isFlagged = (r) => r.totalTopics > 0 && (!r.loggedToday || r.planPct < 40)
+  // Flagged: today's class not logged yet, or past classes this cycle never logged
+  const isFlagged = (r) => (!!r.classToday && !r.loggedToday) || r.notLoggedDays > 0
 
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -54,8 +55,9 @@ export default function DashboardPage() {
   }, [rows])
 
   const shown = onlyFlagged ? sorted.filter(isFlagged) : sorted
-  const notLogged = rows.filter(r => !r.loggedToday && r.totalTopics > 0)
-  const behind    = rows.filter(r => r.planPct < 40 && r.totalTopics > 0)
+  const notLogged = rows.filter(r => r.classToday && !r.loggedToday)
+  const behind    = rows.filter(r => r.notLoggedDays > 0)
+  const withClass = rows.filter(r => r.classToday).length
   const flaggedCount = new Set([...notLogged, ...behind].map(r => r.batchId)).size
 
   if (loading) return <div className="page" style={{ color: 'var(--ink-soft)' }}>Loading…</div>
@@ -87,16 +89,16 @@ export default function DashboardPage() {
           <div data-tour="dash-summary" style={{ paddingBottom: 16, marginBottom: 4 }}>
             {flaggedCount === 0 ? (
               <p style={{ fontSize: 18, color: 'var(--tick)', fontWeight: 600 }}>
-                All {rows.length} {rows.length === 1 ? 'batch has' : 'batches have'} logged today. Nobody is behind plan.
+                {withClass ? `All ${withClass} ${withClass === 1 ? 'class' : 'classes'} today logged.` : 'No classes today.'} No missed logs this cycle.
               </p>
             ) : isAdmin ? (
               <p style={{ fontSize: 18, color: 'var(--ink)' }}>
-                <span style={{ color: 'var(--red-ink)', fontWeight: 700 }}>{notLogged.length} of {rows.length}</span> batches haven't logged today.{' '}
-                {behind.length > 0 && <><span style={{ color: 'var(--red-ink)', fontWeight: 700 }}>{behind.length}</span> {behind.length === 1 ? 'is' : 'are'} behind plan.</>}
+                {notLogged.length > 0 && <><span style={{ color: 'var(--red-ink)', fontWeight: 700 }}>{notLogged.length} of {withClass}</span> {withClass === 1 ? 'class' : 'classes'} today not logged yet.{' '}</>}
+                {behind.length > 0 && <><span style={{ color: 'var(--red-ink)', fontWeight: 700 }}>{behind.length}</span> {behind.length === 1 ? 'batch has' : 'batches have'} past classes with no log.</>}
               </p>
             ) : (
               <p style={{ fontSize: 18, color: 'var(--ink)' }}>
-                You haven't logged {notLogged.map(r => r.batchName).join(', ') || 'a batch'} today.
+                {notLogged.length ? `You haven't logged ${notLogged.map(r => r.batchName).join(', ')} today.` : `Some past classes have no log: ${behind.map(r => r.batchName).join(', ')}.`}
               </p>
             )}
             {flaggedCount > 0 && (
@@ -128,14 +130,18 @@ export default function DashboardPage() {
                     <td data-label="Trainers" className="muted">{r.trainers.join(', ') || '—'}</td>
                     <td data-label="Students" className="num">{r.studentCount}</td>
                     <td data-label="Status">
-                      <span className={`tag ${r.loggedToday ? 'tag--tick' : 'tag--red'}`}>{r.loggedToday ? 'Logged' : 'Not logged'}</span>
-                      <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>{fmtDate(r.lastLogDate)}</div>
+                      {r.holidayToday ? <span className="tag tag--muted">Holiday · {r.holidayToday}</span>
+                        : !r.classToday ? <span className="tag tag--muted">No class today</span>
+                        : <span className={`tag ${r.loggedToday ? 'tag--tick' : 'tag--red'}`}>{r.loggedToday ? 'Logged' : 'Not logged'}</span>}
+                      <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>Last log: {fmtDate(r.lastLogDate)}</div>
+                      {r.notLoggedDays > 0 && <div style={{ fontSize: 12, color: 'var(--red-ink)', marginTop: 2 }}>{r.notLoggedDays} past {r.notLoggedDays === 1 ? 'class' : 'classes'} not logged</div>}
                     </td>
                     <td data-label="Plan progress">
                       <div className="progress-line" style={{ maxWidth: 160 }}>
-                        <span className="count">{r.doneTopics} of {r.totalTopics}</span>
-                        <span className={`progress-bar${r.planPct < 40 ? ' is-behind' : ''}`}><span style={{ width: `${Math.min(100, r.planPct)}%` }} /></span>
+                        <span className="count">{r.doneTopics} of {r.totalTopics} done</span>
+                        <span className={`progress-bar${r.planPct < 70 ? ' is-behind' : ''}`}><span style={{ width: `${Math.min(100, r.planPct)}%` }} /></span>
                       </div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>{r.cycle ? `Cycle ${r.cycle.number} · classes so far` : 'No cycle'}</div>
                     </td>
                     <td data-label="Next topic" title={r.nextTopic || ''} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nextTopic || '—'}</td>
                     <td data-label="">

@@ -134,7 +134,7 @@ export default function CycleMarksPage() {
   async function save() {
     setSaving(true)
     try {
-      await api.put(`/marks/${id}`, {
+      const { data } = await api.put(`/marks/${id}`, {
         rows: rows.map(r => ({
           student: r.student, name: r.name, roll: r.roll, status: r.status,
           assessment: r.assessment, project: r.project,
@@ -142,7 +142,10 @@ export default function CycleMarksPage() {
         }))
       })
       setDirty(false)
-      show('Marks saved.'); load()
+      show(data.top3Updated
+        ? `Marks saved. Top 3 updated on the Hall of Fame: ${data.top3.map(t => t.name).join(', ')}.`
+        : data.top3?.length ? 'Marks saved. Top 3 unchanged.' : 'Marks saved. Top 3 appears once every student has a mark.')
+      load()
     } catch (e) {
       const d = e.response?.data
       show(d?.errors?.length ? `${d.message} ${d.errors.join(' · ')}` : (d?.message || 'Failed to save'), 'error')

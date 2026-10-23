@@ -675,77 +675,58 @@ function PlanTab({ batchId, show, canEdit }) {
 }
 
 /* ─────────────── TOPPERS ─────────────── */
-function ToppersTab({ batchId, user, show, canEdit }) {
-  const [toppers, setToppers] = useState([])
-  const [roster, setRoster] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ student: '', rank: '1', cycle: 'Cycle 1', project: '' })
-
-  useEffect(() => { load() }, [])
-  async function load() {
-    setLoading(true)
-    try {
-      const [t, r] = await Promise.all([
-        api.get('/toppers', { params: { batch: batchId } }),
-        api.get('/students', { params: { batch: batchId } }),
-      ])
-      setToppers(t.data.toppers); setRoster(r.data.students)
-    } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
-    finally { setLoading(false) }
-  }
-
-  async function add() {
-    if (!form.student) return show('Pick a student', 'error')
-    try {
-      await api.post('/toppers', { ...form, batch: batchId, rank: parseInt(form.rank) })
-      show('Topper added.'); setForm({ ...form, student: '', project: '' }); load()
-    } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
-  }
-  async function remove(id) {
-    if (!confirm('Remove this topper entry?')) return
-    try { await api.delete(`/toppers/${id}`); show('Removed.'); load() }
-    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
-  }
-
-  if (loading) return <div className="muted">Loading…</div>
-
+// Top 3 of every cycle of this batch — the same list the public Hall of Fame shows.
+// It fills itself from the marks; to change it or add photos, open the cycle report.
+function ToppersTab({ batchId, show }) {
+  const [d, setD] = useState(null)
+  useEffect(() => {
+    api.get('/toppers', { params: { batch: batchId } }).then(r => setD(r.data))
+      .catch(e => { show(e.response?.data?.message || 'Failed', 'error'); setD({ cycles: [], legacy: [] }) })
+  }, [batchId])
+  if (!d) return <div className="muted">Loading…</div>
+  const medal = (r) => r === 1 ? '🥇' : r === 2 ? '🥈' : '🥉'
   return (
     <div>
-      {canEdit && <div className="sheet" style={{ padding: 20, marginBottom: 18 }}>
-        <h2 className="section-title" style={{ marginBottom: 12 }}>Add top-3 for a cycle</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
-          <div className="field"><label>Student</label>
-            <select className="ctl" value={form.student} onChange={e => setForm({ ...form, student: e.target.value })}>
-              <option value="">— select —</option>
-              {roster.map(s => <option key={s._id} value={s._id}>{s.roll ? `${s.roll} · ` : ''}{s.name}</option>)}
-            </select></div>
-          <div className="field"><label>Rank</label>
-            <select className="ctl" value={form.rank} onChange={e => setForm({ ...form, rank: e.target.value })}>
-              <option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option>
-            </select></div>
-          <div className="field"><label>Cycle</label>
-            <input className="ctl" value={form.cycle} onChange={e => setForm({ ...form, cycle: e.target.value })} placeholder="Cycle 1" /></div>
-          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Project link (optional)</label>
-            <input className="ctl" value={form.project} onChange={e => setForm({ ...form, project: e.target.value })} placeholder="https://github.com/…" /></div>
-        </div>
-        <button className="btn btn--primary" style={{ marginTop: 14 }} onClick={add}>Add topper</button>
-        {roster.length === 0 && <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>Import students first (Students tab) — toppers link to real students.</p>}
-      </div>}
-
-      {toppers.length === 0 ? <div className="empty"><h2>No toppers yet</h2></div>
-        : <div style={{ display: 'grid', gap: 8 }}>
-          {toppers.map(t => (
-            <div key={t._id} className="sheet" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-              <span className="data" style={{ fontSize: 18, fontWeight: 700, color: 'var(--gold-dim)', minWidth: 20 }}>{t.rank}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700 }}>{t.student?.name || '— deleted student —'}</div>
-                <div className="muted" style={{ fontSize: 13 }}>{t.cycle}{t.project && ' · has project'}</div>
+      <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
+        Filled automatically from the marks once every student has a mark — the same Top 3 the public Hall of Fame shows.
+        To add photos or change it, open the cycle report.
+      </p>
+      {d.cycles.length === 0 && <div className="empty"><h2>No cycles yet</h2></div>}
+      <div style={{ display: 'grid', gap: 12 }}>
+        {d.cycles.map(c => (
+          <div key={c._id} className="sheet" style={{ padding: '14px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div>
+                <b>Cycle {c.number}</b>{c.name ? ` · ${c.name}` : ''}
+                <span className="muted" style={{ fontSize: 13 }}> · project day {c.projectDay}</span>
+                {c.manual && <span className="tag tag--muted" style={{ marginLeft: 8 }}>chosen by hand</span>}
               </div>
-              {t.project && <a href={t.project} target="_blank" rel="noreferrer"><button className="btn btn--secondary btn--sm">Project ↗</button></a>}
-              {canEdit && user?.role !== 'cotrainer' && <button className="btn btn--danger btn--sm" onClick={() => remove(t._id)}>Remove</button>}
+              <Link to={`/cycle/${c._id}`} className="btn btn--secondary btn--sm">Cycle report</Link>
             </div>
-          ))}
-        </div>}
+            {c.top3.length ? (
+              <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+                {c.top3.map(t => (
+                  <div key={t.rank} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span style={{ fontSize: 18 }}>{medal(t.rank)}</span>
+                    <span style={{ fontWeight: 600 }}>{t.name}</span>
+                    <span className="muted" style={{ fontSize: 13 }}>{t.roll}</span>
+                    {t.github && <a href={t.github} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>project ↗</a>}
+                    {!t.hasPhoto && <span className="muted" style={{ fontSize: 12 }}>· no photo</span>}
+                  </div>
+                ))}
+              </div>
+            ) : <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>{c.marksDone ? 'No student scored above 0.' : 'Appears once every student has a mark.'}</p>}
+          </div>
+        ))}
+      </div>
+      {d.legacy.length > 0 && (
+        <details style={{ marginTop: 18 }}>
+          <summary className="muted" style={{ cursor: 'pointer', fontSize: 14 }}>Older entries typed by hand ({d.legacy.length})</summary>
+          <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+            {d.legacy.map(t => <div key={t._id} style={{ fontSize: 14 }}>{medal(t.rank)} {t.name} <span className="muted">{t.roll} · {t.cycle}</span>{t.project && <> · <a href={t.project} target="_blank" rel="noreferrer">project ↗</a></>}</div>)}
+          </div>
+        </details>
+      )}
     </div>
   )
 }
@@ -766,6 +747,11 @@ function StudentAccessTab({ batchId, show }) {
   async function regen() {
     if (!window.confirm('Make a new code? The old code stops working (students already set up are not affected).')) return
     try { await api.post(`/student-admin/batch/${batchId}/join-code`); show('New code made.'); load() } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
+  // Profile photos also appear on the public Hall of Fame — trainers can take one down.
+  async function removePhoto(s) {
+    if (!confirm(`Remove ${s.name}'s profile photo? It also disappears from the Hall of Fame.`)) return
+    try { await api.put(`/students/${s._id}`, { photo: null }); show('Photo removed.'); load() } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
   async function reset(s) {
     if (!window.confirm(`Reset ${s.name}'s password? They will set up again with roll number + batch code.`)) return
@@ -793,13 +779,14 @@ function StudentAccessTab({ batchId, show }) {
       <div className="table-wrap sheet" style={{ borderRadius: 10 }}>
         <div style={{ padding: '10px 12px' }}><input className="ctl" style={{ maxWidth: 260, height: 34 }} placeholder="Find student…" value={q} onChange={e => setQ(e.target.value)} /></div>
         <table className="table table--compact">
-          <thead><tr><th>Roll</th><th>Name</th><th>Sign-in</th><th>Last sign-in</th><th>GitHub</th><th></th></tr></thead>
+          <thead><tr><th>Roll</th><th>Name</th><th>Sign-in</th><th>Last sign-in</th><th>GitHub</th><th>Photo</th><th></th></tr></thead>
           <tbody>{rows.map(s => (
             <tr key={s._id}>
               <td>{s.roll}</td><td>{s.name}</td>
               <td>{s.activated ? <span className="tag tag--tick">Set up</span> : <span className="tag tag--muted">Not yet</span>}</td>
               <td className="muted">{s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
               <td>{s.github ? <a href={s.github} target="_blank" rel="noreferrer">profile ↗</a> : <span className="muted">—</span>}</td>
+              <td>{s.hasPhoto ? <button className="btn btn--quiet btn--sm" onClick={() => removePhoto(s)}>Remove photo</button> : <span className="muted">—</span>}</td>
               <td>{s.activated && <button className="btn btn--quiet btn--sm" onClick={() => reset(s)}>Reset password</button>}</td>
             </tr>))}</tbody>
         </table>
