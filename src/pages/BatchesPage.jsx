@@ -29,14 +29,12 @@ export default function BatchesPage() {
     try {
       // Superadmin sees every batch in the selected semester.
       // Trainers/co-trainers see ONLY the batches they are assigned to (active semester).
-      const { data } = isAdmin
-        ? await api.get('/batches', { params:{ semester: selected._id } })
-        : await api.get('/batches/mine')
+      const [{ data }, u] = await Promise.all([
+        isAdmin ? api.get('/batches', { params:{ semester: selected._id } }) : api.get('/batches/mine'),
+        isAdmin ? api.get('/auth/users') : null,
+      ])
       setBatches(data.batches)
-      if (isAdmin) {
-        const u = await api.get('/auth/users')
-        setTrainers(u.data.users.filter(x => x.isActive))
-      }
+      if (u) setTrainers(u.data.users.filter(x => x.isActive))
     } catch (e) { show(e.response?.data?.message || 'Failed to load', 'error') }
     finally { setLoading(false) }
   }

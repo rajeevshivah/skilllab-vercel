@@ -103,19 +103,20 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
   async function loadDay() {
     setLoading(true)
     try {
-      const [p, r] = await Promise.all([
+      // all four at once (they don't depend on each other)
+      const [p, r, pl, one] = await Promise.all([
         api.get(`/plans/${batchId}`),
         api.get('/students', { params: { batch: batchId } }),
+        api.get('/cycleplans/for-date/lookup', { params: { batch: batchId, date } }).catch(() => null),
+        api.get('/logs/one', { params: { batch: batchId, date } }),
       ])
       setPlan(p.data.plan)
       setRoster(r.data.students)
       let plannedNo = ''
-      try {
-        const pl = await api.get('/cycleplans/for-date/lookup', { params: { batch: batchId, date } })
+      if (pl) {
         setPlanned(pl.data.planned); setPlanList(pl.data.classes || [])
         plannedNo = pl.data.planned?.number ?? ''
-      } catch { setPlanned(null); setPlanList([]) }
-      const one = await api.get('/logs/one', { params: { batch: batchId, date } })
+      } else { setPlanned(null); setPlanList([]) }
       if (one.data.log) {
         const L = one.data.log
         setCovered(L.topicsCovered.map(String)); setStatus(L.status); setNotes(L.notes || ''); setPrepLink(L.prepLink || '')

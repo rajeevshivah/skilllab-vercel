@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
 import { ui, Alert } from '../components/ui'
+import { resizeImage } from '../utils/image'
 
 // Defined outside the page component (not inside its render) so these keep a
 // stable identity across re-renders. When a component is redefined on every
@@ -114,12 +115,13 @@ export default function CycleReportPage() {
       return next
     }))
   }
-  function setTopPhoto(rank, file) {
+  async function setTopPhoto(rank, file) {
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) { show('Photo too large (max 2MB)', 'error'); return }
-    const reader = new FileReader()
-    reader.onload = () => setTop3(arr => arr.map(t => t.rank===rank ? { ...t, photo: reader.result } : t))
-    reader.readAsDataURL(file)
+    if (file.size > 15 * 1024 * 1024) { show('Photo too large (max 15MB)', 'error'); return }
+    try {
+      const photo = await resizeImage(file)          // shrunk in the browser to ~50 KB
+      setTop3(arr => arr.map(t => t.rank===rank ? { ...t, photo } : t))
+    } catch (e) { show(e.message, 'error') }
   }
   async function suggestFromMarks() {
     try {

@@ -226,33 +226,37 @@ export default function PublicPage() {
   const [query, setQuery]         = useState('')
   const slowTimer = useRef(null)
 
-  useEffect(() => {
-    api.get('/semesters')
-      .then(({ data }) => {
-        setSemesters(data.semesters || [])
-        const active = (data.semesters || []).find(s => s.status === 'active') || (data.semesters || [])[0]
-        if (active) setSemId(active._id)
-        else setLoading(false)
-      })
-      .catch(() => { setFailed(true); setLoading(false) })
-  }, [])
-
-  useEffect(() => {
-    if (!semId) return
+  // ONE request: without a semester the server picks the active one and sends the
+  // semester list too. The last board seen is kept in this browser and shown at once
+  // while the fresh one loads (so a sleeping server never shows a blank page).
+  const CACHE = 'sl_hof_v1'
+  const photoUrl = (p) => p && p.startsWith('/') ? `${api.defaults.baseURL}${p}` : p
+  const fix = (list) => (list || []).map(c => ({ ...c, top3: (c.top3 || []).map(t => ({ ...t, photo: photoUrl(t.photo) })) }))
+  function load(sem) {
     let cancelled = false
-    setLoading(true); setFailed(false); setSlow(false)
+    const cached = !sem && (() => { try { return JSON.parse(localStorage.getItem(CACHE) || 'null') } catch { return null } })()
+    if (cached) { setSemesters(cached.semesters || []); setSemId(cached.semester || ''); setCycles(fix(cached.cycles)); setLoading(false) }
+    else setLoading(true)
+    setFailed(false); setSlow(false)
+    clearTimeout(slowTimer.current)
     slowTimer.current = setTimeout(() => !cancelled && setSlow(true), 4000)
-
-    api.get('/cycles/halloffame', { params: { semester: semId } })
-      .then(({ data }) => { if (!cancelled) setCycles(data.cycles || []) })
-      .catch(() => { if (!cancelled) setFailed(true) })
+    api.get('/cycles/halloffame', { params: sem ? { semester: sem } : {} })
+      .then(({ data }) => {
+        if (cancelled) return
+        if (data.semesters) setSemesters(data.semesters)
+        setSemId(data.semester || '')
+        setCycles(fix(data.cycles))
+        if (!sem) { try { localStorage.setItem(CACHE, JSON.stringify(data)) } catch { /* storage full or blocked */ } }
+      })
+      .catch(() => { if (!cancelled && !cached) setFailed(true) })
       .finally(() => {
         if (cancelled) return
         clearTimeout(slowTimer.current); setSlow(false); setLoading(false)
       })
-
     return () => { cancelled = true; clearTimeout(slowTimer.current) }
-  }, [semId])
+  }
+  useEffect(() => load(null), [])
+  const changeSem = (id) => { setSemId(id); load(id) }
 
   const tracks = useMemo(() => {
     const set = new Set()
@@ -304,7 +308,7 @@ export default function PublicPage() {
 
         <div className="board-controls">
           {semesters.length > 0 && (
-            <select className="board-field" value={semId} onChange={e => setSemId(e.target.value)} aria-label="Semester">
+            <select className="board-field" value={semId} onChange={e => changeSem(e.target.value)} aria-label="Semester">
               {semesters.map(s => <option key={s._id} value={s._id}>{s.name}{s.status === 'active' ? ' (current)' : ''}</option>)}
             </select>
           )}
