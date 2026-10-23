@@ -44,9 +44,9 @@ export default function Navbar() {
       <Link to="/batches" className={is('/batches') || loc.pathname.startsWith('/batch/') ? 'is-active' : ''}>Batches</Link>
       <Link to="/cycles" className={is('/cycles') || loc.pathname.startsWith('/cycle/') ? 'is-active' : ''}>Cycles</Link>
       <Link to="/plans" className={is('/plans') ? 'is-active' : ''}>Class plans</Link>
+      <Link to="/meeting" className={is('/meeting') ? 'is-active' : ''}>Meetings</Link>
       <Link to="/placement" className={is('/placement') ? 'is-active' : ''}>Placement</Link>
       <Link to="/performance" className={is('/performance') ? 'is-active' : ''}>Performance</Link>
-      <Link to="/feedback" className={is('/feedback') ? 'is-active' : ''}>Feedback</Link>
       {user?.role === 'superadmin' && (
         <div className="dropdown" ref={adminRef} style={{ display: 'inline-block' }}>
           <button
@@ -62,6 +62,7 @@ export default function Navbar() {
               <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Semesters</Link>
               <Link to="/users" className={is('/users') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Users</Link>
               <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Duplicates</Link>
+              <Link to="/planner" className={is('/planner') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Plan new cycles</Link>
               <Link to="/settings" className={is('/settings') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Settings (holidays, timetables)</Link>
             </div>
           )}
@@ -114,6 +115,7 @@ export default function Navbar() {
               <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''}>Semesters</Link>
               <Link to="/users" className={is('/users') ? 'is-active' : ''}>Users</Link>
               <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''}>Duplicates</Link>
+              <Link to="/planner" className={is('/planner') ? 'is-active' : ''}>Plan new cycles</Link>
               <Link to="/settings" className={is('/settings') ? 'is-active' : ''}>Settings</Link>
             </>
           )}

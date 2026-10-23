@@ -40,7 +40,7 @@ function Results({ id }) {
   )
 }
 
-export default function FeedbackPage() {
+export function FeedbackPanel() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'superadmin'
   const [data, setData] = useState(null)
@@ -69,11 +69,10 @@ export default function FeedbackPage() {
     try { await api.patch(`/feedback/windows/${id}`, body); flash(t); load() } catch (e) { flash(e.response?.data?.message || 'Failed', false) }
   }
 
-  if (!data) return <div className="page"><p className="muted">Loading…</p></div>
+  if (!data) return <p className="muted">Loading…</p>
   return (
-    <div className="page">
-      <h1 className="page-title">Student feedback</h1>
-      <p className="muted" style={{ marginTop: 4, marginBottom: 16 }}>
+    <div>
+      <p className="muted" style={{ marginTop: 0, marginBottom: 16 }}>
         Anonymous feedback from students about their trainers. {isAdmin ? 'You open a form for chosen batches; students answer on their own page.' : `You see your own averages once ${data.minForTrainer} or more students have answered — never who answered.`}
       </p>
       {msg && <div className={`banner ${msg.ok ? 'banner--success' : 'banner--error'}`}>{msg.t}</div>}

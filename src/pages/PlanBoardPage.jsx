@@ -3,7 +3,7 @@
 // while the admin has opened editing (e.g. in the planning meeting). Every
 // change is recorded (who, when, what). Each past class shows whether its
 // daily log was saved and whether it meets the logging rule.
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -65,37 +65,58 @@ export default function PlanBoardPage() {
   const [openNotes, setOpenNotes] = useState({})
   const [showChanges, setShowChanges] = useState({})
 
-  async function load(period) {
+  const seen = useRef({})        // rowKey → updatedAt we last saw (to highlight others' fresh changes)
+  const [fresh, setFresh] = useState({})
+  const myId = String(user?.id || user?._id || '')
+  async function load(period, { quiet = false } = {}) {
     try {
       const { data } = await api.get('/cycleplans/board', { params: period ? { period } : {} })
+      // rows changed by someone else since our last look
+      const nowFresh = {}
+      for (const cy of data.cycles || []) for (const c of cy.classes) {
+        const k = `${cy.cycleId}:${c.number}`, prev = seen.current[k]
+        if (quiet && c.updatedAt && prev !== undefined && prev !== c.updatedAt && String(c.updatedById) !== myId) nowFresh[k] = c.updatedBy
+        seen.current[k] = c.updatedAt
+      }
+      if (Object.keys(nowFresh).length) { setFresh(f => ({ ...f, ...nowFresh })); setTimeout(() => setFresh(f => { const g = { ...f }; for (const k in nowFresh) delete g[k]; return g }), 20000) }
       setData(data); setErr(null)
       setMineOnly(m => m === null ? (!data.isAdmin && (data.cycles || []).some(c => c.mine)) : m)
-    } catch (e) { setErr(e.response?.data?.message || 'Could not load plans') }
+    } catch (e) { if (!quiet) setErr(e.response?.data?.message || 'Could not load plans') }
   }
   useEffect(() => { load() }, [])
-  const flash = (text, type = 'success') => { setMsg({ text, type }); setTimeout(() => setMsg(null), 4000) }
+  // Live: refresh every 15 s while the tab is visible and nobody is mid-edit here
+  const editingRef = useRef(null); editingRef.current = editing
+  const periodRef = useRef(null); periodRef.current = data?.period
+  useEffect(() => {
+    const t = setInterval(() => { if (!document.hidden && !editingRef.current && periodRef.current) load(periodRef.current, { quiet: true }) }, 15000)
+    return () => clearInterval(t)
+  }, [])
+  const flash = (text, type = 'success') => { setMsg({ text, type }); setTimeout(() => setMsg(null), 4500) }
 
   const cycles = useMemo(() => (data?.cycles || []).filter(c => !mineOnly || c.mine), [data, mineOnly])
   const anyOpen = (data?.cycles || []).some(c => c.planOpen)
+  const baseOf = (c) => c?.updatedAt ? new Date(c.updatedAt).toISOString() : ''
 
-  async function saveClass(cy, oldNumber, v) {
-    const others = cy.classes.filter(c => c.number !== oldNumber)
-    if (others.some(c => c.number === v.number)) { flash(`Class ${v.number} already exists in ${cy.batch.name}.`, 'error'); return }
-    const list = [...others.map(toEdit), v].sort((a, b) => a.number - b.number)
-      .map(c => ({ ...c, trainer: c.trainer || null }))
+  // Saves ONE class (others' rows are never touched). If someone changed this
+  // row after we loaded it, the server refuses and we reload instead.
+  async function saveClass(cy, orig, v) {
     setSaving(true)
     try {
-      await api.put(`/cycleplans/${cy.cycleId}`, { classes: list })
+      const payload = { ...v, trainer: v.trainer || null }
+      if (orig) await api.patch(`/cycleplans/${cy.cycleId}/class/${orig.number}`, { ...payload, baseUpdatedAt: baseOf(orig) })
+      else await api.post(`/cycleplans/${cy.cycleId}/class`, payload)
       setEditing(null); flash(`${cy.batch.name}: class ${v.number} saved.`); load(data.period)
-    } catch (e) { flash(e.response?.data?.message || 'Could not save', 'error') }
-    finally { setSaving(false) }
+    } catch (e) {
+      flash(e.response?.data?.message || 'Could not save', 'error')
+      if (e.response?.status === 409) { setEditing(null); load(data.period) }
+    } finally { setSaving(false) }
   }
-  async function removeClass(cy, number) {
-    if (!window.confirm(`Remove class ${number} from ${cy.batch.name}'s plan?`)) return
+  async function removeClass(cy, c) {
+    if (!window.confirm(`Remove class ${c.number} from ${cy.batch.name}'s plan?`)) return
     try {
-      await api.put(`/cycleplans/${cy.cycleId}`, { classes: cy.classes.filter(c => c.number !== number).map(c => ({ ...toEdit(c), trainer: c.trainer?._id || null })) })
+      await api.delete(`/cycleplans/${cy.cycleId}/class/${c.number}`, { params: { baseUpdatedAt: baseOf(c) } })
       flash('Class removed.'); load(data.period)
-    } catch (e) { flash(e.response?.data?.message || 'Could not remove', 'error') }
+    } catch (e) { flash(e.response?.data?.message || 'Could not remove', 'error'); load(data.period) }
   }
   async function setOpen(open, cycleId) {
     try {
@@ -136,18 +157,20 @@ export default function PlanBoardPage() {
     if (editing === key) return (
       <div key={key} style={{ padding: '4px 14px', borderTop: '1px solid var(--rule)' }}>
         <b>{cy.batch.name}</b>
-        <ClassEditor value={toEdit(c)} trainers={cy.trainers} saving={saving} onCancel={() => setEditing(null)} onSave={(v) => saveClass(cy, c.number, v)} />
+        <ClassEditor value={toEdit(c)} trainers={cy.trainers} saving={saving} onCancel={() => setEditing(null)} onSave={(v) => saveClass(cy, c, v)} />
       </div>
     )
     const long = (c.notes || '').length > 140
     return (
-      <div key={key} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,170px) 1fr auto', gap: 12, padding: '10px 14px', borderTop: '1px solid var(--rule)', alignItems: 'start' }}>
+      <div key={key} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,170px) 1fr auto', gap: 12, padding: '10px 14px', borderTop: '1px solid var(--rule)', alignItems: 'start',
+        transition: 'background .6s', ...(fresh[key] ? { background: 'var(--pencil-wash)' } : {}) }}>
         <div>
           <b>{view === 'day' ? cy.batch.name : fmtDay(c.date)}</b>
           <div className="muted" style={{ fontSize: 12 }}>Class {c.number}{c.time ? ` · ${c.time}` : ''}{c.trainer ? ` · ${c.trainer.name}` : ''}</div>
+          {fresh[key] && <div style={{ fontSize: 12, color: 'var(--pencil)', fontWeight: 600 }}>just changed by {fresh[key]}</div>}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 600 }}>{c.title || <span className="muted">(no topic)</span>}</div>
+          <div style={{ fontWeight: 600 }} title={c.updatedBy ? `Last edited by ${c.updatedBy}` : undefined}>{c.title || <span style={{ color: 'var(--pencil)' }}>Topic not filled yet</span>}</div>
           {c.notes && <div className="muted" style={{ fontSize: 13, whiteSpace: 'pre-wrap', marginTop: 2 }}>
             {long && !openNotes[key] ? c.notes.slice(0, 140) + '…' : c.notes}
             {long && <button className="btn btn--quiet" style={{ fontSize: 12, marginLeft: 6 }} onClick={() => setOpenNotes(o => ({ ...o, [key]: !o[key] }))}>{openNotes[key] ? 'less' : 'more'}</button>}
@@ -161,7 +184,7 @@ export default function PlanBoardPage() {
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {cy.canEdit && <button className="btn btn--secondary btn--sm" onClick={() => setEditing(key)}>Edit</button>}
-          {cy.canEdit && view === 'batch' && <button className="btn btn--quiet btn--sm" style={{ color: 'var(--red-ink)' }} onClick={() => removeClass(cy, c.number)}>Remove</button>}
+          {cy.canEdit && view === 'batch' && <button className="btn btn--quiet btn--sm" style={{ color: 'var(--red-ink)' }} onClick={() => removeClass(cy, c)}>Remove</button>}
         </div>
       </div>
     )

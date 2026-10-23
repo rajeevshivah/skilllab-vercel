@@ -12,6 +12,7 @@ export default function CyclePlanPage() {
   const [trainers, setTrainers] = useState([])
   const [classes, setClasses] = useState([])
   const [lock, setLock] = useState({ planOpen: false, canEdit: false })
+  const [version, setVersion] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [alert, setAlert] = useState(null)
@@ -22,7 +23,7 @@ export default function CyclePlanPage() {
     setLoading(true)
     try {
       const { data } = await api.get(`/cycleplans/${id}`)
-      setCycle(data.cycle); setTrainers(data.trainers); setLock({ planOpen: !!data.planOpen, canEdit: !!data.canEdit })
+      setCycle(data.cycle); setTrainers(data.trainers); setLock({ planOpen: !!data.planOpen, canEdit: !!data.canEdit }); setVersion(data.version ?? null)
       setClasses((data.classes || []).map(c => ({
         number: c.number, title: c.title||'', notes: c.notes||'',
         trainer: c.trainer?._id || c.trainer || '', date: c.date||'', time: c.time||'',
@@ -68,7 +69,7 @@ export default function CyclePlanPage() {
       await api.put(`/cycleplans/${id}`, { classes: classes.map((c,i)=>({
         number: Number(c.number) || i+1, title: c.title, notes: c.notes,
         trainer: c.trainer || null, date: c.date, time: c.time,
-      })) })
+      })), version })
       show('Plan saved.'); load()
     } catch (e) { show(e.response?.data?.message || 'Failed to save', 'error') }
     finally { setSaving(false) }

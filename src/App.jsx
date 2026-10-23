@@ -16,8 +16,9 @@ import CyclePlanPage   from './pages/CyclePlanPage'
 import ConnectAIPage   from './pages/ConnectAIPage'
 import PerformancePage from './pages/PerformancePage'
 import PlanBoardPage   from './pages/PlanBoardPage'
-import FeedbackPage    from './pages/FeedbackPage'
 import SettingsPage    from './pages/SettingsPage'
+import PlannerPage     from './pages/PlannerPage'
+import MeetingPage     from './pages/MeetingPage'
 import StudentLoginPage from './pages/StudentLoginPage'
 import StudentHomePage  from './pages/StudentHomePage'
 import Navbar        from './components/Navbar'
@@ -49,8 +50,10 @@ export default function App() {
         <Route path="/cycle/:id/plan"  element={<Protected><CyclePlanPage /></Protected>} />
         <Route path="/student"       element={<StudentHomePage />} />
         <Route path="/student/login" element={<StudentLoginPage />} />
+        <Route path="/planner"    element={<Protected admin><PlannerPage /></Protected>} />
+        <Route path="/meeting"    element={<Protected><MeetingPage /></Protected>} />
         <Route path="/settings"   element={<Protected admin><SettingsPage /></Protected>} />
-        <Route path="/feedback"   element={<Protected><FeedbackPage /></Protected>} />
+        <Route path="/feedback"   element={<Navigate to="/meeting?tab=feedback" replace />} />
         <Route path="/plans"      element={<Protected><PlanBoardPage /></Protected>} />
         <Route path="/performance" element={<Protected><PerformancePage /></Protected>} />
         <Route path="/connect-ai" element={<Protected><ConnectAIPage /></Protected>} />

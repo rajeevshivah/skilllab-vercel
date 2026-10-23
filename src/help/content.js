@@ -25,7 +25,7 @@ const HELP = {
       { t: '“Waiting on” another trainer', d: 'If you own a task but cannot finish because another trainer has not done his part, open Details and send “waiting on” to the admin. Nothing changes until the admin approves. After approval, any lateness from that moment counts against the trainer you were waiting on, not you.' },
     ],
     flow: [
-      'Before the cycle: fill the Cycle Plan.',
+      'Before the cycle: fill the topics in the dated class rows the cycle planner created (Class plans page).',
       'Every class: fill the daily log the same day, with attendance.',
       'After the project day: cycle form + marks for every student + Top 3 — before Saturday 7 PM.',
       'This page updates by itself. Each trainer\'s score counts only the parts he owns or taught; the semester average is across all tracked cycles.',
@@ -98,13 +98,15 @@ const HELP = {
     why: 'The plan is the promise; the daily class log is what actually happened. Comparing the two is how the program runs itself — anyone (coordinator, MD, a new trainer taking over) can see whether a batch is on track without asking the trainer.',
     rules: [
       { t: 'One row = one class', d: 'Number classes continuously across cycles (Cycle 3 ends at class 41 → Cycle 4 starts at 42). Never restart at 1.' },
-      { t: 'Plans are locked once made', d: 'A trainer can fill an empty plan. After that, only the admin can change it — or trainers while the admin has opened editing (e.g. in the planning meeting). Every change is recorded: who, when and what.' },
+      { t: 'Plans are locked once complete', d: 'New cycles come with dated class rows (from the batch timetable, skipping holidays). Trainers fill the topics freely until every class has one — then the plan counts as done (credited to whoever completed it) and is locked. After that only the admin changes it, or trainers while the admin has opened editing. Every change is recorded: who, when and what.' },
+      { t: 'Two people editing at once', d: 'Each class saves on its own. If someone else changed the same class after you opened it, your save is refused with a message instead of overwriting theirs — the page refreshes every 15 seconds and highlights what others just changed.' },
       { t: 'Plan first, log daily', d: 'Plan is filled in the planning meeting before the cycle. Each day after class, the trainer fills the daily class log on the Batch page — what was taught + attendance.' },
       { t: 'Behind plan gets flagged', d: 'The Dashboard flags batches that have not logged today or have covered under 40% of their syllabus (Batch → Plan tab). No log = it did not happen, as far as the system knows.' },
       { t: 'Dates decide the cycle', d: 'A class belongs to the cycle whose start–end dates include its date. Attendance and marks for a cycle only count classes inside those dates.' },
     ],
     flow: [
-      'Cycles page → open the cycle → Plan (this page): plan all classes.',
+      'Admin → Plan new cycles: the calendar creates the cycles and their dated class rows.',
+      'Class plans / this page: fill the topic of every class.',
       'Batch page → daily class log: after each class, log topic + attendance.',
       'Dashboard: shows who has not logged and who is behind plan.',
       'End of cycle → Marks page → Cycle report → Top 3.',
