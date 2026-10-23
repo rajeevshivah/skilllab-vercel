@@ -782,7 +782,7 @@ function StudentAccessTab({ batchId, show }) {
           <thead><tr><th>Roll</th><th>Name</th><th>Sign-in</th><th>Last sign-in</th><th>GitHub</th><th>Photo</th><th></th></tr></thead>
           <tbody>{rows.map(s => (
             <tr key={s._id}>
-              <td>{s.roll}</td><td>{s.name}</td>
+              <td>{s.roll}</td><td>{s.name}{s.demo && <span className="tag tag--muted" style={{ marginLeft: 6 }}>demo</span>}</td>
               <td>{s.activated ? <span className="tag tag--tick">Set up</span> : <span className="tag tag--muted">Not yet</span>}</td>
               <td className="muted">{s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
               <td>{s.github ? <a href={s.github} target="_blank" rel="noreferrer">profile ↗</a> : <span className="muted">—</span>}</td>

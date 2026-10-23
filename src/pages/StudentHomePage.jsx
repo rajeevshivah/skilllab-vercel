@@ -53,7 +53,7 @@ function PulseCard({ p, onDone }) {
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState(null)
   async function send() {
     setBusy(true); setMsg(null)
-    try { await studentApi.post('/student/pulse', { covered, understanding: u }); setMsg({ ok: true, t: 'Thanks! Your answer is saved.' }); onDone() }
+    try { const { data } = await studentApi.post('/student/pulse', { covered, understanding: u }); setMsg({ ok: true, t: data.demo ? data.message : 'Thanks! Your answer is saved.' }); onDone() }
     catch (e) { setMsg({ ok: false, t: e.response?.data?.message || 'Could not save' }) }
     finally { setBusy(false) }
   }
@@ -87,8 +87,8 @@ function ProjectCard({ cycle, project, onDone }) {
   async function send() {
     setBusy(true); setMsg(null)
     try {
-      await studentApi.post('/student/submission', { cycleId: cycle.id, githubUrl: gh, liveUrl: live, note, ...(shot ? { screenshot: shot } : {}) })
-      setMsg({ ok: true, t: 'Submitted. You can submit again to change it while submission is open.' }); setShot(null); onDone()
+      const { data } = await studentApi.post('/student/submission', { cycleId: cycle.id, githubUrl: gh, liveUrl: live, note, ...(shot ? { screenshot: shot } : {}) })
+      setMsg({ ok: true, t: data.demo ? data.message : 'Submitted. You can submit again to change it while submission is open.' }); setShot(null); onDone()
     } catch (e) { setMsg({ ok: false, t: e.response?.data?.message || 'Could not submit' }) }
     finally { setBusy(false) }
   }
@@ -131,8 +131,8 @@ function FeedbackCard({ f, questions, onDone }) {
   async function send() {
     setBusy(true); setMsg(null)
     try {
-      await studentApi.post('/student/feedback', { windowId: f.windowId, trainerId: who, ratings: r, comment })
-      setR({}); setComment(''); setMsg({ ok: true, t: 'Thank you — feedback sent.' }); onDone()
+      const { data } = await studentApi.post('/student/feedback', { windowId: f.windowId, trainerId: who, ratings: r, comment })
+      setR({}); setComment(''); setMsg({ ok: true, t: data.demo ? data.message : 'Thank you — feedback sent.' }); onDone()
     } catch (e) { setMsg({ ok: false, t: e.response?.data?.message || 'Could not send' }) }
     finally { setBusy(false) }
   }
@@ -385,6 +385,7 @@ export default function StudentHomePage() {
       </header>
 
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '16px 16px 60px', display: 'grid', gap: 14 }}>
+        {me.student.demo && <div className="banner banner--pencil" style={{ margin: 0 }}><b>Demo account.</b> Everything works as for a real student, but answers, feedback and submissions are not saved and this account is not in any roster.</div>}
         {tab === 'today' && <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
             <Stat label="Attendance" value={me.attendance.pct != null ? `${me.attendance.pct}%` : '—'} sub={`${me.attendance.present} of ${me.attendance.total} classes`}
