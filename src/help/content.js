@@ -48,6 +48,7 @@ const HELP = {
       { t: 'Who can edit', d: 'The admin always can. Trainers can edit only while the admin has clicked “Let trainers edit” (for planning meetings). Locked again with one click. Every change is saved with the name and time.' },
       { t: 'Class moved or cancelled?', d: 'Tell the admin. The admin moves the class to its new date (or marks the day “No class” in the batch log), so nobody is marked as missing a log.' },
       { t: 'Log status under each past class', d: 'Green = logged and complete. Yellow = logged but missing something (planned class, GitHub push, or what was taught). Red = not logged. Blue = no class that day.' },
+      { t: 'What students say', d: 'After each class students answer two anonymous questions on their own page: was today’s topic covered, and how well did they understand it (1–5). The totals show under each class. A red ⚠ means the log says “Done as planned” but most students (5+ answers) say it wasn’t covered.' },
       { t: 'The log rule', d: 'Log on the class day, before midnight, by the trainer who taught: which planned class, done / partly / not done, did students push to GitHub, and attendance. Not done as planned → write what was taught.' },
     ],
     flow: [

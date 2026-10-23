@@ -284,7 +284,10 @@ export default function PublicPage() {
 
         <div className="board-top">
           <div className="board-mark">SHEAT College of Engineering</div>
-          <Link to="/login" className="board-staff">Staff login</Link>
+          <span style={{ display: 'flex', gap: 18 }}>
+            <Link to="/student/login" className="board-staff">Student login</Link>
+            <Link to="/login" className="board-staff">Staff login</Link>
+          </span>
         </div>
 
         <header className="board-head">

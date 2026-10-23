@@ -144,7 +144,12 @@ export default function PlanBoardPage() {
             {long && !openNotes[key] ? c.notes.slice(0, 140) + '…' : c.notes}
             {long && <button className="btn btn--quiet" style={{ fontSize: 12, marginLeft: 6 }} onClick={() => setOpenNotes(o => ({ ...o, [key]: !o[key] }))}>{openNotes[key] ? 'less' : 'more'}</button>}
           </div>}
-          <div style={{ marginTop: 4 }}><LogChip c={c} ruleFrom={data.ruleFrom} /></div>
+          <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <LogChip c={c} ruleFrom={data.ruleFrom} />
+            {c.pulse && <span className={`tag ${c.pulse.mismatch ? 'tag--red' : c.pulse.coveredPct >= 70 ? 'tag--tick' : 'tag--muted'}`}
+              title={`${c.pulse.yes} yes · ${c.pulse.partly} partly · ${c.pulse.no} no`}>
+              {c.pulse.mismatch ? '⚠ ' : ''}Students: {c.pulse.coveredPct}% covered · understood {c.pulse.understanding}/5 ({c.pulse.responses})</span>}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {cy.canEdit && <button className="btn btn--secondary btn--sm" onClick={() => setEditing(key)}>Edit</button>}

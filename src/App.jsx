@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import PublicPage    from './pages/PublicPage'
 import LoginPage     from './pages/LoginPage'
@@ -16,6 +16,9 @@ import CyclePlanPage   from './pages/CyclePlanPage'
 import ConnectAIPage   from './pages/ConnectAIPage'
 import PerformancePage from './pages/PerformancePage'
 import PlanBoardPage   from './pages/PlanBoardPage'
+import FeedbackPage    from './pages/FeedbackPage'
+import StudentLoginPage from './pages/StudentLoginPage'
+import StudentHomePage  from './pages/StudentHomePage'
 import Navbar        from './components/Navbar'
 
 function Protected({ children, admin }) {
@@ -27,9 +30,11 @@ function Protected({ children, admin }) {
 }
 
 export default function App() {
+  const loc = useLocation()
+  const studentSide = loc.pathname === '/student' || loc.pathname.startsWith('/student/')
   return (
     <>
-      <Navbar />
+      {!studentSide && <Navbar />}
       <Routes>
         <Route path="/"          element={<PublicPage />} />
         <Route path="/login"     element={<LoginPage />} />
@@ -41,6 +46,9 @@ export default function App() {
         <Route path="/cycle/:id"  element={<Protected><CycleReportPage /></Protected>} />
         <Route path="/cycle/:id/marks" element={<Protected><CycleMarksPage /></Protected>} />
         <Route path="/cycle/:id/plan"  element={<Protected><CyclePlanPage /></Protected>} />
+        <Route path="/student"       element={<StudentHomePage />} />
+        <Route path="/student/login" element={<StudentLoginPage />} />
+        <Route path="/feedback"   element={<Protected><FeedbackPage /></Protected>} />
         <Route path="/plans"      element={<Protected><PlanBoardPage /></Protected>} />
         <Route path="/performance" element={<Protected><PerformancePage /></Protected>} />
         <Route path="/connect-ai" element={<Protected><ConnectAIPage /></Protected>} />

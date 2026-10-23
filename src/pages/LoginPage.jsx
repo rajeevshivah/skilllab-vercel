@@ -49,6 +49,9 @@ export default function LoginPage() {
         </form>
 
         <p style={{ marginTop: 22, textAlign: 'center' }}>
+          <Link to="/student/login" className="btn btn--secondary btn--sm" style={{ width: '100%' }}>I'm a student — sign in here</Link>
+        </p>
+        <p style={{ marginTop: 12, textAlign: 'center' }}>
           <Link to="/" className="btn btn--quiet" style={{ fontSize: 13 }}>View the Hall of Fame</Link>
         </p>
       </div>

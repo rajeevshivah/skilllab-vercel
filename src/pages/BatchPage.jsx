@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
 
-const TABS = ['Students', 'Plan', 'Toppers']
+const TABS = ['Students', 'Plan', 'Toppers', 'Student login']
 
 export default function BatchPage() {
   const { id } = useParams()
@@ -60,7 +60,7 @@ export default function BatchPage() {
       )}
 
       <div className="tabs" style={{ margin: '18px 0 20px' }}>
-        {TABS.map(t => (
+        {TABS.filter(t => t !== 'Student login' || canEdit).map(t => (
           <button key={t} className={tab === t ? 'is-active' : ''} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
@@ -70,6 +70,7 @@ export default function BatchPage() {
       {tab === 'Students' && <StudentsTab batchId={id} user={user} show={show} canEdit={canEdit} />}
       {tab === 'Plan' && <PlanTab batchId={id} show={show} canEdit={canEdit} />}
       {tab === 'Toppers' && <ToppersTab batchId={id} user={user} show={show} canEdit={canEdit} />}
+      {tab === 'Student login' && canEdit && <StudentAccessTab batchId={id} show={show} />}
 
       {logOpen && <DailyLogSheet batchId={id} canEdit={canEdit} show={show} onClose={() => setLogOpen(false)} />}
     </div>
@@ -744,6 +745,72 @@ function ToppersTab({ batchId, user, show, canEdit }) {
             </div>
           ))}
         </div>}
+    </div>
+  )
+}
+
+
+/* ─────────────── STUDENT LOGIN (join code, who has set up, resets) ─────────────── */
+function StudentAccessTab({ batchId, show }) {
+  const [d, setD] = useState(null)
+  const [big, setBig] = useState(false)
+  const [q, setQ] = useState('')
+  async function load() {
+    try { const { data } = await api.get(`/student-admin/batch/${batchId}`); setD(data) }
+    catch (e) { show(e.response?.data?.message || 'Failed to load', 'error') }
+  }
+  useEffect(() => { load() }, [batchId])
+  if (!d) return <p className="muted">Loading…</p>
+  const site = `${window.location.origin}/student`
+  async function regen() {
+    if (!window.confirm('Make a new code? The old code stops working (students already set up are not affected).')) return
+    try { await api.post(`/student-admin/batch/${batchId}/join-code`); show('New code made.'); load() } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
+  async function reset(s) {
+    if (!window.confirm(`Reset ${s.name}'s password? They will set up again with roll number + batch code.`)) return
+    try { const { data } = await api.post(`/student-admin/student/${s._id}/reset-password`); show(data.message); load() } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
+  const ql = q.trim().toLowerCase()
+  const rows = d.students.filter(s => !ql || `${s.roll} ${s.name}`.toLowerCase().includes(ql))
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div className="sheet" style={{ padding: 18, display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div>
+          <div className="muted" style={{ fontSize: 12 }}>Batch code (show it in class)</div>
+          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '.18em', fontFamily: 'monospace' }}>{d.joinCode}</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 220, fontSize: 14 }}>
+          Students open <b>{site}</b> → “First time? Set up” → roll number + this code + a password.<br />
+          <b>{d.activated}</b> of {d.total} students have set up their sign-in.
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn--primary btn--sm" onClick={() => setBig(true)}>Show full screen</button>
+          <button className="btn btn--secondary btn--sm" onClick={regen}>New code</button>
+        </div>
+      </div>
+
+      <div className="table-wrap sheet" style={{ borderRadius: 10 }}>
+        <div style={{ padding: '10px 12px' }}><input className="ctl" style={{ maxWidth: 260, height: 34 }} placeholder="Find student…" value={q} onChange={e => setQ(e.target.value)} /></div>
+        <table className="table table--compact">
+          <thead><tr><th>Roll</th><th>Name</th><th>Sign-in</th><th>Last sign-in</th><th>GitHub</th><th></th></tr></thead>
+          <tbody>{rows.map(s => (
+            <tr key={s._id}>
+              <td>{s.roll}</td><td>{s.name}</td>
+              <td>{s.activated ? <span className="tag tag--tick">Set up</span> : <span className="tag tag--muted">Not yet</span>}</td>
+              <td className="muted">{s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
+              <td>{s.github ? <a href={s.github} target="_blank" rel="noreferrer">profile ↗</a> : <span className="muted">—</span>}</td>
+              <td>{s.activated && <button className="btn btn--quiet btn--sm" onClick={() => reset(s)}>Reset password</button>}</td>
+            </tr>))}</tbody>
+        </table>
+      </div>
+
+      {big && (
+        <div onClick={() => setBig(false)} style={{ position: 'fixed', inset: 0, background: '#0b1a33', color: '#fff', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, cursor: 'pointer', padding: 20, textAlign: 'center' }}>
+          <div style={{ fontSize: 22, opacity: .8 }}>Open <b>{site}</b> → “First time? Set up”</div>
+          <div style={{ fontSize: 'min(22vw, 180px)', fontWeight: 800, letterSpacing: '.12em', fontFamily: 'monospace' }}>{d.joinCode}</div>
+          <div style={{ fontSize: 18, opacity: .7 }}>Roll number + this code + your own password · click anywhere to close</div>
+        </div>
+      )}
     </div>
   )
 }

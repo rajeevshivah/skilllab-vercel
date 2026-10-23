@@ -28,6 +28,8 @@ export default function CycleMarksPage() {
   const [dirty, setDirty] = useState(false)
   const [sticky, setSticky] = useState(() => new Set())
   const [togglingHeld, setTogglingHeld] = useState(false)
+  const [subs, setSubs] = useState(null)        // { window, byStudent: Map }
+  const [winEdit, setWinEdit] = useState(null)  // { from, until } while editing
   const cellRefs = useRef({})
   const show = (msg, type = 'success') => { setAlert({ msg, type }); setTimeout(() => setAlert(null), 4500) }
 
@@ -48,7 +50,29 @@ export default function CycleMarksPage() {
       setRows(data.rows); setDirty(false); setSticky(new Set())
     } catch (e) { show(e.response?.data?.message || 'Failed to load', 'error') }
     finally { setLoading(false) }
+    loadSubs()
   }
+  async function loadSubs() {
+    try {
+      const { data } = await api.get(`/student-admin/cycle/${id}/submissions`)
+      setSubs({ window: data.window, byStudent: new Map(data.submissions.map(x => [String(x.student), x])), count: data.submissions.length })
+    } catch { setSubs(null) }
+  }
+  async function viewShot(subId) {
+    const w = window.open('', '_blank')
+    try {
+      const { data } = await api.get(`/student-admin/submission/${subId}/screenshot`)
+      if (w) { w.document.write(`<title>Screenshot</title><body style="margin:0;background:#111"><img src="${data.dataUrl}" style="max-width:100%;display:block;margin:auto"></body>`); w.document.close() }
+    } catch (e) { if (w) w.close(); show(e.response?.data?.message || 'No screenshot', 'error') }
+  }
+  async function saveWindow(reset) {
+    try {
+      await api.patch(`/student-admin/cycle/${id}/window`, reset ? { from: '', until: '' } : winEdit)
+      setWinEdit(null); show('Submission window saved.'); loadSubs()
+    } catch (e) { show(e.response?.data?.message || 'Could not save', 'error') }
+  }
+  const istInput = (d) => d ? new Date(new Date(d).getTime() + 330 * 60000).toISOString().slice(0, 16) : ''
+  const fmtW = (d) => d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '' 
 
   const myId = user?.id || user?._id
   const canEdit = user?.role === 'superadmin'
@@ -232,6 +256,23 @@ export default function CycleMarksPage() {
       )}
       {alert && <div className={`banner banner--${alert.type === 'success' ? 'success' : 'error'}`}>{alert.msg}</div>}
 
+      {subs && (
+        <div className="sheet" data-tour="marks-subs" style={{ padding: '10px 14px', marginBottom: 14, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', fontSize: 14 }}>
+          <span><b>Project submissions:</b> {subs.count} of {rows.length} submitted online.</span>
+          <span className="muted">Students submit {fmtW(subs.window.from)} → {fmtW(subs.window.until)}{subs.window.custom ? '' : ' (whole project day)'}; late until {fmtW(subs.window.lateUntil)}.</span>
+          {canEdit && !winEdit && <button className="btn btn--quiet btn--sm" onClick={() => setWinEdit({ from: istInput(subs.window.from), until: istInput(subs.window.until) })}>Change window</button>}
+          {canEdit && winEdit && (
+            <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input type="datetime-local" className="ctl" style={{ width: 200, height: 32 }} value={winEdit.from} onChange={e => setWinEdit(w => ({ ...w, from: e.target.value }))} />
+              →<input type="datetime-local" className="ctl" style={{ width: 200, height: 32 }} value={winEdit.until} onChange={e => setWinEdit(w => ({ ...w, until: e.target.value }))} />
+              <button className="btn btn--primary btn--sm" onClick={() => saveWindow(false)}>Save</button>
+              <button className="btn btn--secondary btn--sm" onClick={() => saveWindow(true)}>Reset to project day</button>
+              <button className="btn btn--quiet btn--sm" onClick={() => setWinEdit(null)}>Cancel</button>
+            </span>
+          )}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }}>
         <input className="ctl" style={{ width: 240, height: 34 }} placeholder="Search name or roll…"
           value={query} onChange={e => changeQuery(e.target.value)} />
@@ -268,13 +309,13 @@ export default function CycleMarksPage() {
             <div className="table-wrap sheet" data-tour="marks-table" style={{ borderRadius: 10 }}>
               <table className="table table--compact">
                 <thead><tr>
-                  <th>Roll</th><th>Name</th><th className="num">Att%</th>
+                  <th>Roll</th><th>Name</th>{subs && <th>Submission</th>}<th className="num">Att%</th>
                   <th>Status</th><th className="num">Assess</th><th className="num">Project</th>
                   <th className="num">Total</th><th>Category</th><th>Remark</th>
                 </tr></thead>
                 <tbody>
                   {shown.length === 0 && (
-                    <tr><td className="muted" colSpan={9}>Nothing matches this search and filter.</td></tr>
+                    <tr><td className="muted" colSpan={subs ? 10 : 9}>Nothing matches this search and filter.</td></tr>
                   )}
                   {shown.map((r, ri) => {
                     const [clabel, ctag] = CAT[r.category] || CAT['']
@@ -284,6 +325,16 @@ export default function CycleMarksPage() {
                       <tr key={r.student} style={offFilter ? { background: 'var(--blue-wash)' } : undefined}>
                         <td className="data muted">{r.roll || '—'}</td>
                         <td style={{ fontWeight: 600 }}>{r.name}</td>
+                        {subs && <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{(() => {
+                          const x = subs.byStudent.get(String(r.student))
+                          if (!x) return <span className="muted">—</span>
+                          return <>
+                            <a href={x.githubUrl} target="_blank" rel="noreferrer" title={x.note || x.githubUrl}>GitHub ↗</a>
+                            {x.liveUrl && <> · <a href={x.liveUrl} target="_blank" rel="noreferrer">Live ↗</a></>}
+                            {x.hasScreenshot && <> · <button className="btn btn--quiet" style={{ fontSize: 13 }} onClick={() => viewShot(x._id)}>Image</button></>}
+                            {x.late && <span className="tag tag--red" style={{ marginLeft: 4 }}>late</span>}
+                          </>
+                        })()}</td>}
                         <td className="num">{r.attendancePct == null ? '—' : `${r.attendancePct}%`}</td>
                         <td>
                           <select

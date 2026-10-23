@@ -46,6 +46,7 @@ export default function Navbar() {
       <Link to="/plans" className={is('/plans') ? 'is-active' : ''}>Class plans</Link>
       <Link to="/placement" className={is('/placement') ? 'is-active' : ''}>Placement</Link>
       <Link to="/performance" className={is('/performance') ? 'is-active' : ''}>Performance</Link>
+      <Link to="/feedback" className={is('/feedback') ? 'is-active' : ''}>Feedback</Link>
       {user?.role === 'superadmin' && (
         <div className="dropdown" ref={adminRef} style={{ display: 'inline-block' }}>
           <button
