@@ -123,12 +123,15 @@ export default function ClassHealth({ isAdmin }) {
           <input type="date" className="ctl" style={{ width: 'auto', height: 32 }} value={range.to} onChange={e => e.target.value && pick('custom', range.from, e.target.value)} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {mineCount > 0 && <button className={`btn btn--sm ${scope === 'mine' ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setScope('mine')}>My batches</button>}
-          <button className={`btn btn--sm ${scope === 'all' ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setScope('all')}>All batches</button>
-          <select className="ctl" style={{ width: 'auto', height: 32 }} value={scope.startsWith('trainer:') ? scope : ''} onChange={e => setScope(e.target.value || 'all')}>
-            <option value="">By trainer…</option>
-            {trainers.map(([id, n]) => <option key={id} value={`trainer:${id}`}>{n}</option>)}
-          </select>
+          {/* a trainer only ever gets their own batches from the server; the filters are for admin / management */}
+          {d?.seesAll ? <>
+            {mineCount > 0 && <button className={`btn btn--sm ${scope === 'mine' ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setScope('mine')}>My batches</button>}
+            <button className={`btn btn--sm ${scope === 'all' ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setScope('all')}>All batches</button>
+            <select className="ctl" style={{ width: 'auto', height: 32 }} value={scope.startsWith('trainer:') ? scope : ''} onChange={e => setScope(e.target.value || 'all')}>
+              <option value="">By trainer…</option>
+              {trainers.map(([id, n]) => <option key={id} value={`trainer:${id}`}>{n}</option>)}
+            </select>
+          </> : <span className="muted" style={{ fontSize: 13 }}>Your batches</span>}
           <span className="muted" style={{ fontSize: 12, marginLeft: 'auto' }}>{fmtDay(range.from)}{range.to !== range.from ? ` – ${fmtDay(range.to)}` : ''}</span>
         </div>
       </div>
