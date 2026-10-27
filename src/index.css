@@ -148,12 +148,33 @@ select option[value=""] { color: #94A3B8; }
 .table .data { font-family: var(--font-data); }
 .table tr.is-flagged td:first-child { box-shadow: inset 3px 0 0 var(--red-ink); }
 
+/* Phones: a stacked table becomes one card per row — "label  value" lines,
+   the first cell (the row's name) as the card title. */
 @media (max-width: 720px) {
   .table--stack thead { display: none; }
-  .table--stack, .table--stack tbody, .table--stack tr, .table--stack td { display: block; width: 100%; }
-  .table--stack tr { border-bottom: 1px solid var(--rule); padding: 10px 0; }
-  .table--stack td { border: none; padding: 3px 0; }
-  .table--stack td::before { content: attr(data-label); display: block; font-size: 11px; color: var(--ink-soft); font-weight: 700; }
+  .table--stack, .table--stack tbody { display: block; width: 100%; }
+  .table--stack tr { display: block; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
+  .table--stack td {
+    display: grid; grid-template-columns: minmax(84px, 36%) 1fr; gap: 10px; align-items: center;
+    border: none; padding: 4px 0; text-align: left !important; width: auto;
+  }
+  .table--stack td::before { content: attr(data-label); font-size: 12px; color: var(--ink-soft); font-weight: 700; }
+  .table--stack td[data-label=""]::before, .table--stack td:not([data-label])::before { display: none; }
+  .table--stack td[data-label=""], .table--stack td:not([data-label]) { display: block; }
+  .table--stack td:first-child { display: block; padding-bottom: 6px; font-size: 15px; }
+  .table--stack td:first-child::before { display: none; }
+  .table--stack tr:hover td { background: none; }
+  .table--stack tr.is-flagged { box-shadow: inset 3px 0 0 var(--red-ink); }
+  .table--stack tr.is-flagged td:first-child { box-shadow: none; }
+  .table--stack .progress-line { max-width: 220px; }
+  .table--stack td.m-hide { display: none; }
+  .table--stack td.m-title { display: block; padding-bottom: 6px; font-size: 15px; }
+  .table--stack td.m-title::before { display: none; }
+}
+.only-mobile { display: none; }
+@media (max-width: 720px) {
+  .only-desktop { display: none !important; }
+  .only-mobile { display: block; }
 }
 
 /* Progress — "12 of 20 topics" as text, a thin bar as a glance aid. */
@@ -276,9 +297,21 @@ input.ctl:focus-visible, select.ctl:focus-visible, textarea.ctl:focus-visible {
   padding: 4px 6px; border-radius: 6px; font-family: var(--font-ui);
 }
 .account-trigger:hover { background: var(--page); }
-.account-name { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.account-name { font-size: 13.5px; font-weight: 700; color: var(--ink); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-search { width: 200px; }
+.nav-search-panel { width: 320px; max-width: calc(100vw - 32px); }
 .account-chevron { color: var(--ink-soft); font-size: 10px; }
 
+@media (max-width: 640px) {
+  /* phones: name + Menu + account on the first line, search full width below */
+  .nav-inner { flex-wrap: wrap; height: auto; padding: 8px 16px; gap: 8px 10px; }
+  .nav-mark { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .nav-right { display: contents; }
+  .nav-search { order: 10; width: 100%; padding-bottom: 2px; }
+  .nav-search-panel { left: 0; right: auto; }
+  .account-name { max-width: 90px; }
+  .page { padding: 20px 16px 64px; }
+}
 @media (max-width: 1100px) {
   .nav-tabs { display: none; }
   .nav-menu-btn { display: inline-flex; align-items: center; }

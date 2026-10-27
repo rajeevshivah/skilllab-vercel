@@ -62,12 +62,12 @@ export default function CyclesPage() {
           <h1 style={ui.h1}>Cycles</h1>
           <p style={ui.sub}>Each batch runs its own cycles (2–4 weeks). Cycle numbers are per batch.</p>
         </div>
-        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
           <select style={{ ...ui.input, width:'auto' }} value={selected?._id||''}
             onChange={e=>setSelected(semesters.find(s=>s._id===e.target.value))}>
             {semesters.map(s => <option key={s._id} value={s._id}>{s.name}{s.status==='active'?' (active)':''}</option>)}
           </select>
-          <Link to="/plans"><button style={ui.btnGhost}>📅 All class plans (day by day)</button></Link>
+          <Link to="/plans"><button style={{ ...ui.btnGhost, whiteSpace:'nowrap' }}>📅 All class plans</button></Link>
           {isAdmin && <Link to="/planner"><button style={ui.btnGold}>+ Plan new cycles (calendar)</button></Link>}
         </div>
       </div>

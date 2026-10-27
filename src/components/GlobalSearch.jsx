@@ -51,7 +51,7 @@ export default function GlobalSearch() {
   const total = results ? (results.students.length + results.batches.length + results.cycles.length) : 0
 
   return (
-    <div className="dropdown" style={{ width: 200 }} ref={boxRef}>
+    <div className="dropdown nav-search" ref={boxRef}>
       <input
         ref={inputRef}
         className="ctl"
@@ -62,7 +62,7 @@ export default function GlobalSearch() {
         onFocus={() => results && setOpen(true)}
       />
       {open && q.trim().length >= 2 && (
-        <div className="dropdown-panel" style={{ width: 320, maxHeight: 420, overflowY: 'auto', minWidth: 0 }}>
+        <div className="dropdown-panel nav-search-panel" style={{ maxHeight: 420, overflowY: 'auto', minWidth: 0 }}>
           {loading && <div style={{ padding: '12px 10px', color: 'var(--ink-soft)', fontSize: 13, textAlign: 'center' }}>Searching…</div>}
           {!loading && total === 0 && <div style={{ padding: '12px 10px', color: 'var(--ink-soft)', fontSize: 13, textAlign: 'center' }}>No matches for "{q}"</div>}
 

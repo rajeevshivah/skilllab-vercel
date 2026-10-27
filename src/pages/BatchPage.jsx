@@ -530,11 +530,12 @@ function StudentsTab({ batchId, user, show, canEdit }) {
                       </tr>
                     ) : (
                       <tr key={s._id} className={s.attendancePct != null && s.attendancePct < 75 ? 'is-flagged' : ''}>
-                        <td data-label="Roll" className="data muted">{s.roll || '—'}</td>
-                        <td data-label="Name" style={{ fontWeight: 600 }}>{s.name} {s.flagged && <span className="tag tag--pencil" style={{ marginLeft: 6 }}>Flagged</span>}</td>
-                        <td data-label="Course" className="muted">{s.course || '—'}</td>
-                        <td data-label="Sem" className="muted">{s.sem || '—'}</td>
-                        <td data-label="Sec" className="muted">{s.section || '—'}</td>
+                        <td data-label="Roll" className="data muted m-hide">{s.roll || '—'}</td>
+                        <td data-label="Name" className="m-title" style={{ fontWeight: 600 }}>{s.name} {s.flagged && <span className="tag tag--pencil" style={{ marginLeft: 6 }}>Flagged</span>}
+                          <div className="only-mobile muted data" style={{ fontSize: 12, fontWeight: 400 }}>{[s.roll, s.course, s.sem && `sem ${s.sem}`, s.section && `sec ${s.section}`].filter(Boolean).join(' · ')}</div></td>
+                        <td data-label="Course" className="muted m-hide">{s.course || '—'}</td>
+                        <td data-label="Sem" className="muted m-hide">{s.sem || '—'}</td>
+                        <td data-label="Sec" className="muted m-hide">{s.section || '—'}</td>
                         <td data-label="Attendance">
                           <div className="progress-line" style={{ maxWidth: 130 }}>
                             <span className={`progress-bar${s.attendancePct < 75 ? ' is-behind' : ''}`}><span style={{ width: `${Math.min(100, s.attendancePct)}%` }} /></span>

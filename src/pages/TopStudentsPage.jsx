@@ -24,8 +24,28 @@ function ScoreBar({ v, w }) {
 }
 
 function Rows({ list, w, showBatch, start = 0 }) {
-  return (
-    <div className="table-wrap sheet" style={{ padding: 0 }}>
+  return (<>
+    {/* phones: one card per student */}
+    <div className="only-mobile sheet" style={{ padding: 0 }}>
+      {list.map((s, i) => (
+        <div key={s.id} style={{ padding: '12px 14px', borderBottom: '1px solid var(--rule)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="muted" style={{ width: 22, textAlign: 'right', fontSize: 13 }}>{start + i + 1}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600 }}>{s.name} {s.flagged && '⭐'} {s.top3 > 0 && <span title="Top-3 finishes">🏆{s.top3 > 1 ? s.top3 : ''}</span>}</div>
+              <div className="muted data" style={{ fontSize: 12 }}>{s.roll}{showBatch ? ` · ${s.batch.name}${s.batchRank ? ` #${s.batchRank}` : ''}` : ''}</div>
+            </div>
+            <ScoreBar v={s.score} w={w} />
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6, paddingLeft: 32, fontSize: 12.5 }} className="muted">
+            {s.tier ? <span className={`tag ${TIER[s.tier][1]}`}>{TIER[s.tier][0]}</span> : !s.cyclesEvaluated ? <span className="tag tag--muted">too early</span> : null}
+            <span>Marks {pct(s.marks)}</span><span>Att. {pct(s.attendance)}</span>
+            <span>Projects {s.projectsDue ? `${s.projectsSubmitted}/${s.projectsDue}` : '—'}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="table-wrap sheet only-desktop" style={{ padding: 0 }}>
       <table className="table table--compact">
         <thead><tr>
           <th className="num">#</th><th>Student</th>{showBatch && <th>Batch</th>}<th>Score</th><th></th>
@@ -53,7 +73,7 @@ function Rows({ list, w, showBatch, start = 0 }) {
         </tbody>
       </table>
     </div>
-  )
+  </>)
 }
 
 export default function TopStudentsPage() {
