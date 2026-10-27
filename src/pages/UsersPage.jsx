@@ -38,6 +38,15 @@ export default function UsersPage() {
     try { await api.patch(`/auth/users/${u._id}`, { role }); load() }
     catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
+  // a new temporary password, shown once — share it privately
+  const [newPw, setNewPw] = useState(null)
+  async function resetPw(u) {
+    if (!confirm(`Give ${u.name} a new temporary password? Their current password and every sign-in stop working.`)) return
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789', b = crypto.getRandomValues(new Uint8Array(12))
+    const p = Array.from(b, x => chars[x % chars.length]).join(''), password = `${p.slice(0, 4)}-${p.slice(4, 8)}-${p.slice(8)}`
+    try { await api.patch(`/auth/users/${u._id}`, { password }); setNewPw({ name: u.name, email: u.email, password }) }
+    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
   async function remove(u) {
     if (!confirm(u.otherColleges ? `Remove ${u.name} from this college? (They keep their login for their other college.)` : `Delete ${u.name}?`)) return
     try { await api.delete(`/auth/users/${u._id}`); show('Deleted.'); load() }
@@ -54,6 +63,12 @@ export default function UsersPage() {
         <button style={ui.btnGold} onClick={()=>setShowForm(v=>!v)}>+ New user</button>
       </div>
       <Alert alert={alert} />
+      {newPw && (
+        <div style={{ ...ui.card, marginBottom: 16, borderColor: 'rgba(245,158,11,0.5)' }}>
+          New password for <b>{newPw.name}</b> ({newPw.email}): <code style={{ fontSize: 16 }}>{newPw.password}</code> — shown only now. Share it privately.
+          <button style={{ ...ui.btnGhost, marginLeft: 10 }} onClick={() => setNewPw(null)}>Done</button>
+        </div>
+      )}
 
       {showForm && (
         <div style={{ ...ui.card, marginBottom:18 }}>
@@ -61,7 +76,7 @@ export default function UsersPage() {
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:12 }}>
             <div><label style={ui.label}>Name</label><input style={ui.input} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} /></div>
             <div><label style={ui.label}>Email</label><input style={ui.input} type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} /></div>
-            <div><label style={ui.label}>Password</label><input style={ui.input} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="not used if they already have a login" /></div>
+            <div><label style={ui.label}>Password (10+ characters)</label><input style={ui.input} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="not used if they already have a login" /></div>
             <div><label style={ui.label}>Role</label>
               <select style={ui.input} value={form.role} onChange={e=>setForm({...form,role:e.target.value})}>{roleOptions}</select></div>
           </div>
@@ -93,7 +108,9 @@ export default function UsersPage() {
                       <td style={ui.td}>
                         <button style={ui.btnGhost} onClick={()=>toggleActive(u)}>{u.isActive?'Active':'Inactive'}</button>
                       </td>
-                      <td style={ui.td}>{u._id!==me && <button style={ui.btnDanger} onClick={()=>remove(u)}>{u.otherColleges ? 'Remove' : 'Delete'}</button>}</td>
+                      <td style={{ ...ui.td, whiteSpace:'nowrap' }}>{u._id!==me && <>
+                        {!u.otherColleges && <button style={{ ...ui.btnGhost, marginRight: 6 }} onClick={()=>resetPw(u)}>Reset password</button>}
+                        <button style={ui.btnDanger} onClick={()=>remove(u)}>{u.otherColleges ? 'Remove' : 'Delete'}</button></>}</td>
                     </tr>
                   ))}
                 </tbody>

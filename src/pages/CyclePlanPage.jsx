@@ -78,17 +78,19 @@ export default function CyclePlanPage() {
   }
 
   function exportPlan() {
-    const trainerName = (tid) => trainers.find(t => t._id === tid)?.name || ''
+    // every value typed by someone is escaped before it goes into the printable page
+    const esc = (x) => String(x ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch])
+    const trainerName = (tid) => esc(trainers.find(t => t._id === tid)?.name || '')
     const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : ''
     const rows = classes.map((c,i) => `
       <tr>
-        <td style="text-align:center">${c.number || i+1}</td>
-        <td>${(c.title||'').replace(/</g,'&lt;')}</td>
-        <td>${(c.notes||'').replace(/</g,'&lt;')}</td>
-        <td>${fmtDate(c.date)}${c.time?` · ${c.time}`:''}</td>
+        <td style="text-align:center">${esc(c.number || i+1)}</td>
+        <td>${esc(c.title)}</td>
+        <td>${esc(c.notes)}</td>
+        <td>${fmtDate(c.date)}${c.time?` · ${esc(c.time)}`:''}</td>
         <td>${trainerName(c.trainer)}</td>
       </tr>`).join('')
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Cycle ${cycle.number} Plan — ${cycle.batch?.name||''}</title>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Cycle ${esc(cycle.number)} Plan — ${esc(cycle.batch?.name)}</title>
       <style>
         body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:32px;max-width:800px;margin:0 auto}
         h1{font-size:20px;margin:0 0 4px} .sub{color:#666;font-size:13px;margin-bottom:20px}
@@ -97,11 +99,11 @@ export default function CyclePlanPage() {
         th{background:#f3f4f6} tr:nth-child(even) td{background:#fafafa}
         .foot{margin-top:24px;color:#888;font-size:11px}
       </style></head><body>
-      <h1>${cycle.batch?.name||''} — Cycle ${cycle.number}${cycle.name?` · ${cycle.name}`:''} — Training Plan</h1>
-      <div class="sub">${cycle.startDate?new Date(cycle.startDate).toLocaleDateString('en-GB'):''} to ${cycle.endDate?new Date(cycle.endDate).toLocaleDateString('en-GB'):''}${cycle.batch?.track?` · ${cycle.batch.track}`:''}</div>
+      <h1>${esc(cycle.batch?.name)} — Cycle ${esc(cycle.number)}${cycle.name?` · ${esc(cycle.name)}`:''} — Training Plan</h1>
+      <div class="sub">${cycle.startDate?new Date(cycle.startDate).toLocaleDateString('en-GB'):''} to ${cycle.endDate?new Date(cycle.endDate).toLocaleDateString('en-GB'):''}${cycle.batch?.track?` · ${esc(cycle.batch.track)}`:''}</div>
       <table><thead><tr><th>#</th><th>Topic</th><th>What we'll cover</th><th>Date &amp; time</th><th>Trainer</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#999">No classes planned</td></tr>'}</tbody></table>
-      <div class="foot">${brand} · shared with students</div>
+      <div class="foot">${esc(brand)} · shared with students</div>
       </body></html>`
     const w = window.open('', '_blank')
     if (!w) { show('Allow pop-ups to export', 'error'); return }

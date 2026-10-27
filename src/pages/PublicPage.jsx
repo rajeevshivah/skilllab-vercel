@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
 import { useOrg } from '../context/OrgContext'
+import { safeUrl } from '../utils/safeUrl'
 
 /* ────────────────────────────────────────────────────────────────
    Skill Lab — public Hall of Fame ("the Honours Board")
@@ -171,7 +172,7 @@ function Row({ student, lead }) {
         <div className="board-name">{student.name || 'Unnamed'}</div>
         {student.roll && <div className="board-roll">{student.roll}</div>}
         {student.github && (
-          <a className="board-repo" href={student.github} target="_blank" rel="noreferrer noopener">{repoLabel(student.github)}</a>
+          <a className="board-repo" href={safeUrl(student.github)} target="_blank" rel="noreferrer noopener">{repoLabel(student.github)}</a>
         )}
       </div>
     </div>

@@ -48,14 +48,14 @@ export default function StudentLoginPage() {
           </div>
           {mode === 'setup' && (
             <div className="field">
-              <label htmlFor="s-code">Batch code <span className="muted" style={{ fontWeight: 400 }}>(your trainer shows it in class)</span></label>
+              <label htmlFor="s-code">Setup code <span className="muted" style={{ fontWeight: 400 }}>(from your trainer)</span></label>
               <input id="s-code" className="ctl" value={code} onChange={e => setCode(e.target.value.toUpperCase())} required maxLength={6}
                 style={{ letterSpacing: '.2em', fontWeight: 700, textTransform: 'uppercase' }} />
             </div>
           )}
           <div className="field">
-            <label htmlFor="s-pass">{mode === 'setup' ? 'Choose a password (6+ characters)' : 'Password'}</label>
-            <input id="s-pass" type="password" className="ctl" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === 'setup' ? 6 : 1}
+            <label htmlFor="s-pass">{mode === 'setup' ? 'Choose a password (8+ characters)' : 'Password'}</label>
+            <input id="s-pass" type="password" className="ctl" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === 'setup' ? 8 : 1}
               autoComplete={mode === 'setup' ? 'new-password' : 'current-password'} />
           </div>
           {mode === 'setup' && (

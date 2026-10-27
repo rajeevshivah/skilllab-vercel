@@ -198,7 +198,32 @@ function StudentScore({ flash }) {
   )
 }
 
-const TABS = ['Holidays', 'Batch timetables', 'Top students']
+function StudentSignup({ flash }) {
+  const [mode, setMode] = useState(null), [busy, setBusy] = useState(false)
+  useEffect(() => { api.get('/settings/student-signup').then(r => setMode(r.data.mode)) }, [])
+  if (!mode) return <p className="muted">Loading…</p>
+  async function save(m) {
+    setBusy(true)
+    try { const r = await api.put('/settings/student-signup', { mode: m }); setMode(r.data.mode); flash('Saved.') }
+    catch (e) { flash(e.response?.data?.message || 'Could not save', false) } finally { setBusy(false) }
+  }
+  const opt = (m, title, text) => (
+    <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 0', cursor: 'pointer' }}>
+      <input type="radio" name="signup" checked={mode === m} disabled={busy} onChange={() => save(m)} style={{ marginTop: 3 }} />
+      <span><b>{title}</b><div className="muted" style={{ fontSize: 13 }}>{text}</div></span>
+    </label>
+  )
+  return (
+    <div className="sheet" style={{ padding: 20, maxWidth: 640 }}>
+      <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>How students set up their sign-in the first time</h2>
+      {opt('personal', 'Personal code for each student (recommended)', 'Each student gets their own one-time code from the trainer (batch page → Student login → Print codes). Nobody can set up a classmate\'s account.')}
+      {opt('batch', 'One code for the whole batch', 'Quicker: the trainer shows one code in class. But any student who knows a classmate\'s roll number can set up that classmate\'s account first.')}
+      <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>Students already set up are not affected either way.</p>
+    </div>
+  )
+}
+
+const TABS = ['Holidays', 'Batch timetables', 'Top students', 'Student sign-up']
 export default function SettingsPage() {
   const [tab, setTab] = useState(() => { const t = new URLSearchParams(window.location.search).get('tab'); return TABS.includes(t) ? t : 'Holidays' })
   const [msg, setMsg] = useState(null)
@@ -206,12 +231,12 @@ export default function SettingsPage() {
   return (
     <div className="page">
       <h1 className="page-title">Settings</h1>
-      <p className="muted" style={{ marginTop: 4 }}>Holidays, each batch’s class days, and how top students are scored.</p>
+      <p className="muted" style={{ marginTop: 4 }}>Holidays, each batch’s class days, how top students are scored, and how students sign up.</p>
       <div className="tabs" style={{ margin: '16px 0 18px' }}>
         {TABS.map(t => <button key={t} className={tab === t ? 'is-active' : ''} onClick={() => setTab(t)}>{t}</button>)}
       </div>
       {msg && <div className={`banner ${msg.ok ? 'banner--success' : 'banner--error'}`}>{msg.t}</div>}
-      {tab === 'Holidays' ? <Holidays flash={flash} /> : tab === 'Batch timetables' ? <Timetables flash={flash} /> : <StudentScore flash={flash} />}
+      {tab === 'Holidays' ? <Holidays flash={flash} /> : tab === 'Batch timetables' ? <Timetables flash={flash} /> : tab === 'Top students' ? <StudentScore flash={flash} /> : <StudentSignup flash={flash} />}
     </div>
   )
 }

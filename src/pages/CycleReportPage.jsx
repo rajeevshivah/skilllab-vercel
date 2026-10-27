@@ -64,7 +64,7 @@ export default function CycleReportPage() {
         setTop3([1,2,3].map(rank => {
           const e = saved.find(x => x.rank === rank) || {}
           return { rank, student: e.student || '', name: e.name || '', roll: e.roll || '', github: e.github || '',
-            photo: e.photo?.data ? `data:${e.photo.contentType};base64,${e.photo.data}` : (typeof e.photo === 'string' ? e.photo : null) }
+            photo: e.photo?.url ? (e.photo.url.startsWith('/') ? `${api.defaults.baseURL}${e.photo.url}` : e.photo.url) : null, photoNew: false }
         }))
       }
       // seed the form: use saved report values, else fall back to live-computed
@@ -124,7 +124,7 @@ export default function CycleReportPage() {
     if (file.size > 15 * 1024 * 1024) { show('Photo too large (max 15MB)', 'error'); return }
     try {
       const photo = await resizeImage(file)          // shrunk in the browser to ~50 KB
-      setTop3(arr => arr.map(t => t.rank===rank ? { ...t, photo } : t))
+      setTop3(arr => arr.map(t => t.rank===rank ? { ...t, photo, photoNew: true } : t))
     } catch (e) { show(e.message, 'error') }
   }
   // Top 3 normally comes from the marks by itself. After a hand change, this puts it back.
@@ -160,7 +160,8 @@ export default function CycleReportPage() {
         projectNote: form.projectNote,
         top3: top3
           .filter(t => t.student || t.name)   // only ranks that were filled
-          .map(t => ({ rank: t.rank, student: t.student || null, name: t.name, roll: t.roll, github: t.github, photo: t.photo })),
+          // a newly picked photo is sent as the image; an unchanged one as 'keep'
+          .map(t => ({ rank: t.rank, student: t.student || null, name: t.name, roll: t.roll, github: t.github, photo: t.photoNew ? t.photo : (t.photo ? 'keep' : null) })),
       })
       show('Report saved.')
       load()

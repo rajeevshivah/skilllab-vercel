@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import GlobalSearch from './GlobalSearch'
+import ChangePassword from './ChangePassword'
 import { useOrg } from '../context/OrgContext'
 
 const ADMIN_PATHS = ['/semesters', '/users', '/duplicates', '/planner', '/settings', '/platform']
@@ -15,6 +16,7 @@ export default function Navbar() {
   const [adminOpen, setAdminOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
   const adminRef = useRef(null)
   const accountRef = useRef(null)
 
@@ -101,6 +103,7 @@ export default function Navbar() {
                   <div className="dropdown-sep" />
                   {has('hallOfFame') && <Link to="/" className={is('/') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Hall of Fame (public page)</Link>}
                   {has('ai') && <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Connect AI</Link>}
+                  <button onClick={() => { setAccountOpen(false); setPwOpen(true) }}>Change password</button>
                   <button onClick={handleLogout}>Log out</button>
                 </div>
               )}
@@ -111,6 +114,7 @@ export default function Navbar() {
         </div>
       </div>
 
+      {pwOpen && <ChangePassword onClose={() => setPwOpen(false)} />}
       {user?.role === 'viewer' && (
         <div style={{ background: 'var(--pencil-wash)', color: 'var(--pencil)', fontSize: 12.5, textAlign: 'center', padding: '4px 12px' }}>
           Management view — you can see everything here; changes are made by the admin and trainers.

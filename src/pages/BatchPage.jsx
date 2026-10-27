@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
+import { safeUrl } from '../utils/safeUrl'
 
 const TABS = ['Students', 'Toppers', 'Student login']
 
@@ -447,7 +448,7 @@ function StudentsTab({ batchId, user, show, canEdit }) {
 
       {tempIds.length > 0 && (
         <div className="banner banner--success">
-          <b>Temporary IDs to hand out</b> — each student signs up with this ID and the batch code (Student login tab):
+          <b>Temporary IDs to hand out</b> — each student signs up with this ID and the setup code shown in the Student login tab:
           <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>{tempIds.map(t => <li key={t.roll}>{t.name}: <b className="data">{t.roll}</b></li>)}</ul>
           <button className="btn btn--quiet btn--sm" style={{ marginTop: 4, paddingLeft: 0 }} onClick={() => setTempIds([])}>Done</button>
         </div>
@@ -644,7 +645,7 @@ function ToppersTab({ batchId, show }) {
                     <span style={{ fontSize: 18 }}>{medal(t.rank)}</span>
                     <span style={{ fontWeight: 600 }}>{t.name}</span>
                     <span className="muted" style={{ fontSize: 13 }}>{t.roll}</span>
-                    {t.github && <a href={t.github} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>project ↗</a>}
+                    {t.github && <a href={safeUrl(t.github)} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>project ↗</a>}
                     {!t.hasPhoto && <span className="muted" style={{ fontSize: 12 }}>· no photo</span>}
                   </div>
                 ))}
@@ -657,7 +658,7 @@ function ToppersTab({ batchId, show }) {
         <details style={{ marginTop: 18 }}>
           <summary className="muted" style={{ cursor: 'pointer', fontSize: 14 }}>Older entries typed by hand ({d.legacy.length})</summary>
           <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
-            {d.legacy.map(t => <div key={t._id} style={{ fontSize: 14 }}>{medal(t.rank)} {t.name} <span className="muted">{t.roll} · {t.cycle}</span>{t.project && <> · <a href={t.project} target="_blank" rel="noreferrer">project ↗</a></>}</div>)}
+            {d.legacy.map(t => <div key={t._id} style={{ fontSize: 14 }}>{medal(t.rank)} {t.name} <span className="muted">{t.roll} · {t.cycle}</span>{t.project && <> · <a href={safeUrl(t.project)} target="_blank" rel="noreferrer">project ↗</a></>}</div>)}
           </div>
         </details>
       )}
@@ -666,11 +667,16 @@ function ToppersTab({ batchId, show }) {
 }
 
 
-/* ─────────────── STUDENT LOGIN (join code, who has set up, resets) ─────────────── */
+/* ─────────────── STUDENT LOGIN (setup codes, who has set up, resets) ─────────────── */
+// The college chooses (Settings → Student sign-up) how students set up the first time:
+//   personal — each student gets their own one-time code from this list (a classmate can't claim their account)
+//   batch    — one code for the batch, shown in class
 function StudentAccessTab({ batchId, show }) {
+  const { user } = useAuth()
   const [d, setD] = useState(null)
   const [big, setBig] = useState(false)
   const [q, setQ] = useState('')
+  const [onlyPending, setOnlyPending] = useState(false)
   async function load() {
     try { const { data } = await api.get(`/student-admin/batch/${batchId}`); setD(data) }
     catch (e) { show(e.response?.data?.message || 'Failed to load', 'error') }
@@ -678,9 +684,15 @@ function StudentAccessTab({ batchId, show }) {
   useEffect(() => { load() }, [batchId])
   if (!d) return <p className="muted">Loading…</p>
   const site = `${window.location.origin}/student`
+  const personal = d.mode === 'personal'
+  const canChange = user?.role !== 'viewer'
   async function regen() {
     if (!window.confirm('Make a new code? The old code stops working (students already set up are not affected).')) return
     try { await api.post(`/student-admin/batch/${batchId}/join-code`); show('New code made.'); load() } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
+  async function newCode(s) {
+    if (!window.confirm(`Make a new setup code for ${s.name}? The old one stops working.`)) return
+    try { await api.post(`/student-admin/student/${s._id}/new-code`); show('New code made.'); load() } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
   // Profile photos also appear on the public Hall of Fame — trainers can take one down.
   async function removePhoto(s) {
@@ -688,40 +700,66 @@ function StudentAccessTab({ batchId, show }) {
     try { await api.put(`/students/${s._id}`, { photo: null }); show('Photo removed.'); load() } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
   async function reset(s) {
-    if (!window.confirm(`Reset ${s.name}'s password? They will set up again with roll number + batch code.`)) return
+    if (!window.confirm(`Reset ${s.name}'s password? Their sign-in stops on every device, and they set up again${personal ? ' with a new code' : ' with the batch code'}.`)) return
     try { const { data } = await api.post(`/student-admin/student/${s._id}/reset-password`); show(data.message); load() } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
+  // printable slips: name, roll, code, where to go — cut and hand out in class
+  function printCodes() {
+    const pend = d.students.filter(s => !s.activated && s.setupCode && !s.demo)
+    if (!pend.length) return show('Everyone has set up already.')
+    const esc = (x) => String(x ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch])
+    const w = window.open('', '_blank')
+    if (!w) return show('Allow pop-ups to print the codes.', 'error')
+    const slips = pend.map(s => `<div class="slip"><b>${esc(s.name)}</b><div>Roll: ${esc(s.roll)}</div><div class="code">${esc(s.setupCode)}</div><div class="how">Open ${esc(site)} → First time? Set up</div></div>`).join('')
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Setup codes</title><style>body{font-family:system-ui,sans-serif;margin:16px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.slip{border:1px dashed #999;padding:10px;font-size:13px;break-inside:avoid}.code{font:700 22px/1.3 monospace;letter-spacing:.15em;margin:4px 0}.how{font-size:11px;color:#555}@media print{button{display:none}}</style></head><body><button onclick="print()">Print</button><div class="grid">${slips}</div></body></html>`)
+    w.document.close()
+  }
   const ql = q.trim().toLowerCase()
-  const rows = d.students.filter(s => !ql || `${s.roll} ${s.name}`.toLowerCase().includes(ql))
+  const rows = d.students.filter(s => (!ql || `${s.roll} ${s.name}`.toLowerCase().includes(ql)) && (!onlyPending || !s.activated))
+  const pending = d.students.filter(s => !s.activated && !s.demo).length
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <div className="sheet" style={{ padding: 18, display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div>
-          <div className="muted" style={{ fontSize: 12 }}>Batch code (show it in class)</div>
-          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '.18em', fontFamily: 'monospace' }}>{d.joinCode}</div>
-        </div>
-        <div style={{ flex: 1, minWidth: 220, fontSize: 14 }}>
-          Students open <b>{site}</b> → “First time? Set up” → roll number + this code + a password.<br />
-          <b>{d.activated}</b> of {d.total} students have set up their sign-in.
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn--primary btn--sm" onClick={() => setBig(true)}>Show full screen</button>
-          <button className="btn btn--secondary btn--sm" onClick={regen}>New code</button>
-        </div>
+        {personal ? (
+          <div style={{ flex: 1, minWidth: 220, fontSize: 14 }}>
+            Each student sets up with <b>their own code</b> (below): open <b>{site}</b> → “First time? Set up” → roll number + code + a password.<br />
+            <b>{d.activated}</b> of {d.total} students have set up · {pending} still to go.
+          </div>
+        ) : <>
+          <div>
+            <div className="muted" style={{ fontSize: 12 }}>Batch code (show it in class)</div>
+            <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '.18em', fontFamily: 'monospace' }}>{d.joinCode}</div>
+          </div>
+          <div style={{ flex: 1, minWidth: 220, fontSize: 14 }}>
+            Students open <b>{site}</b> → “First time? Set up” → roll number + this code + a password.<br />
+            <b>{d.activated}</b> of {d.total} students have set up their sign-in.
+          </div>
+        </>}
+        {canChange && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {personal
+            ? (pending > 0 && <button className="btn btn--primary btn--sm" onClick={printCodes}>Print codes for {pending}</button>)
+            : <><button className="btn btn--primary btn--sm" onClick={() => setBig(true)}>Show full screen</button>
+               <button className="btn btn--secondary btn--sm" onClick={regen}>New code</button></>}
+        </div>}
       </div>
 
       <div className="table-wrap sheet" style={{ borderRadius: 10 }}>
-        <div style={{ padding: '10px 12px' }}><input className="ctl" style={{ maxWidth: 260, height: 34 }} placeholder="Find student…" value={q} onChange={e => setQ(e.target.value)} /></div>
+        <div style={{ padding: '10px 12px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input className="ctl" style={{ maxWidth: 260, height: 34 }} placeholder="Find student…" value={q} onChange={e => setQ(e.target.value)} />
+          <label style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={onlyPending} onChange={e => setOnlyPending(e.target.checked)} /> Not set up yet</label>
+        </div>
         <table className="table table--compact">
-          <thead><tr><th>Roll</th><th>Name</th><th>Sign-in</th><th>Last sign-in</th><th>GitHub</th><th>Photo</th><th></th></tr></thead>
+          <thead><tr><th>Roll</th><th>Name</th><th>Sign-in</th>{personal && canChange && <th>Setup code</th>}<th>Last sign-in</th><th>GitHub</th><th>Photo</th><th></th></tr></thead>
           <tbody>{rows.map(s => (
             <tr key={s._id}>
-              <td>{s.roll}</td><td>{s.name}{s.demo && <span className="tag tag--muted" style={{ marginLeft: 6 }}>demo</span>}</td>
+              <td>{s.roll}{s.rollTemporary && <span className="tag tag--pencil" style={{ marginLeft: 6 }}>temporary</span>}</td>
+              <td>{s.name}{s.demo && <span className="tag tag--muted" style={{ marginLeft: 6 }}>demo</span>}</td>
               <td>{s.activated ? <span className="tag tag--tick">Set up</span> : <span className="tag tag--muted">Not yet</span>}</td>
+              {personal && canChange && <td>{s.setupCode ? <><b className="data" style={{ letterSpacing: '.1em' }}>{s.setupCode}</b> <button className="btn btn--quiet btn--sm" onClick={() => newCode(s)}>new</button></> : <span className="muted">—</span>}</td>}
               <td className="muted">{s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
-              <td>{s.github ? <a href={s.github} target="_blank" rel="noreferrer">profile ↗</a> : <span className="muted">—</span>}</td>
-              <td>{s.hasPhoto ? <button className="btn btn--quiet btn--sm" onClick={() => removePhoto(s)}>Remove photo</button> : <span className="muted">—</span>}</td>
-              <td>{s.activated && <button className="btn btn--quiet btn--sm" onClick={() => reset(s)}>Reset password</button>}</td>
+              <td>{s.github ? <a href={safeUrl(s.github)} target="_blank" rel="noreferrer">profile ↗</a> : <span className="muted">—</span>}</td>
+              <td>{s.hasPhoto && canChange ? <button className="btn btn--quiet btn--sm" onClick={() => removePhoto(s)}>Remove photo</button> : <span className="muted">{s.hasPhoto ? 'yes' : '—'}</span>}</td>
+              <td>{s.activated && canChange && <button className="btn btn--quiet btn--sm" onClick={() => reset(s)}>Reset password</button>}</td>
             </tr>))}</tbody>
         </table>
       </div>

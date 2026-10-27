@@ -296,7 +296,11 @@ function Account({ me, onDone }) {
     catch (e) { setMsg({ ok: false, t: e.response?.data?.message || 'Could not save' }) }
   }
   async function savePw() {
-    try { await studentApi.put('/student/password', { current: cur, password: pw }); setCur(''); setPw(''); setMsg({ ok: true, t: 'Password changed.' }) }
+    try {
+      const { data } = await studentApi.put('/student/password', { current: cur, password: pw })
+      if (data.token) localStorage.setItem('sl_student_token', data.token)   // other devices are signed out; this one stays
+      setCur(''); setPw(''); setMsg({ ok: true, t: 'Password changed. Other devices are signed out.' })
+    }
     catch (e) { setMsg({ ok: false, t: e.response?.data?.message || 'Could not change' }) }
   }
   return (
@@ -309,8 +313,8 @@ function Account({ me, onDone }) {
         <details><summary style={{ cursor: 'pointer', fontSize: 14 }}>Change password</summary>
           <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
             <input className="ctl" type="password" placeholder="Current password" value={cur} onChange={e => setCur(e.target.value)} />
-            <input className="ctl" type="password" placeholder="New password (6+ characters)" value={pw} onChange={e => setPw(e.target.value)} />
-            <button className="btn btn--secondary btn--sm" style={{ justifySelf: 'start' }} disabled={!cur || pw.length < 6} onClick={savePw}>Change password</button>
+            <input className="ctl" type="password" placeholder="New password (8+ characters)" value={pw} onChange={e => setPw(e.target.value)} />
+            <button className="btn btn--secondary btn--sm" style={{ justifySelf: 'start' }} disabled={!cur || pw.length < 8} onClick={savePw}>Change password</button>
           </div></details>
         {msg && <span style={{ fontSize: 13, color: msg.ok ? 'var(--tick)' : 'var(--red-ink)' }}>{msg.t}</span>}
         <button className="btn btn--secondary btn--sm" style={{ justifySelf: 'start' }} onClick={studentSignOut}>Sign out</button>
