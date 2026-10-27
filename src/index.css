@@ -327,3 +327,19 @@ input.ctl:focus-visible, select.ctl:focus-visible, textarea.ctl:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Pasted project code (components/CodeView.jsx) */
+.code-box { border: 1px solid var(--rule-strong); border-radius: 8px; overflow: hidden; background: var(--sheet); }
+.code-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--page); border-bottom: 1px solid var(--rule); font-size: 13px; }
+.code-box pre { margin: 0; padding: 12px 14px; overflow: auto; background: #fbfbfa; font-size: 12.5px; line-height: 1.55; tab-size: 2; }
+.code-box pre code, .code-input { font-family: var(--font-data), ui-monospace, Menlo, Consolas, monospace; }
+.code-input { display: block; width: 100%; min-height: 180px; border: none; padding: 12px 14px; font-size: 12.5px; line-height: 1.55;
+  resize: vertical; outline: none; background: #fbfbfa; color: var(--ink); white-space: pre; overflow: auto; tab-size: 2; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-doctag { color: #a626a4; }
+.hljs-string, .hljs-attr-value, .hljs-regexp, .hljs-addition { color: #50a14f; }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color: #986801; }
+.hljs-comment, .hljs-quote { color: #8a8f98; font-style: italic; }
+.hljs-title, .hljs-section, .hljs-title.function_ { color: #4078f2; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-property { color: #c18401; }
+.hljs-tag, .hljs-name, .hljs-selector-id, .hljs-selector-class, .hljs-deletion { color: #e45649; }
+.hljs-type, .hljs-class .hljs-title, .hljs-meta { color: #0184bc; }

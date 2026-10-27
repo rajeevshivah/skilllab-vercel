@@ -21,3 +21,14 @@ export function resizeImage(file, max = 480, quality = 0.82) {
     img.src = url
   })
 }
+
+// Project screenshots: shrink until the file is under `limitKB` (the server
+// refuses more than 300 KB). Resolves to { data (base64), contentType }.
+export async function shrinkScreenshot(file, limitKB = 280) {
+  for (const [max, q] of [[1280, 0.72], [1100, 0.62], [900, 0.55], [720, 0.5]]) {
+    const url = await resizeImage(file, max, q)
+    const data = url.split(',')[1]
+    if (data.length * 0.75 <= limitKB * 1024) return { data, contentType: 'image/jpeg' }
+  }
+  throw new Error('That screenshot is too large even after shrinking. Crop it and try again.')
+}

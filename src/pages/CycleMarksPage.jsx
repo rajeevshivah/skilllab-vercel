@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
 import PageHelp from '../components/PageHelp'
+import { CodeView } from '../components/CodeView'
 
 const CAT = {
   excellent: ['Excellent', 'tag--tick'],
@@ -64,6 +65,12 @@ export default function CycleMarksPage() {
       const { data } = await api.get(`/student-admin/submission/${subId}/screenshot`)
       if (w) { w.document.write(`<title>Screenshot</title><body style="margin:0;background:#111"><img src="${data.dataUrl}" style="max-width:100%;display:block;margin:auto"></body>`); w.document.close() }
     } catch (e) { if (w) w.close(); show(e.response?.data?.message || 'No screenshot', 'error') }
+  }
+  // pasted code, shown in a pop-up with colouring
+  const [code, setCode] = useState(null)
+  async function viewCode(subId) {
+    try { const { data } = await api.get(`/student-admin/submission/${subId}/code`); setCode(data) }
+    catch (e) { show(e.response?.data?.message || 'Could not load the code', 'error') }
   }
   async function setSubmission(open, minutes) {
     try {
@@ -336,7 +343,8 @@ export default function CycleMarksPage() {
                           const x = subs.byStudent.get(String(r.student))
                           if (!x) return <span className="muted">—</span>
                           return <>
-                            <a href={x.githubUrl} target="_blank" rel="noreferrer" title={x.note || x.githubUrl}>GitHub ↗</a>
+                            {x.githubUrl && <a href={x.githubUrl} target="_blank" rel="noreferrer" title={x.note || x.githubUrl}>GitHub ↗</a>}
+                            {x.files?.length > 0 && <>{x.githubUrl ? ' · ' : ''}<button className="btn btn--quiet" style={{ fontSize: 13 }} title={x.files.map(f => `${f.name} (${f.lines} lines)`).join(', ')} onClick={() => viewCode(x._id)}>Code ({x.files.length})</button></>}
                             {x.liveUrl && <> · <a href={x.liveUrl} target="_blank" rel="noreferrer">Live ↗</a></>}
                             {x.hasScreenshot && <> · <button className="btn btn--quiet" style={{ fontSize: 13 }} onClick={() => viewShot(x._id)}>Image</button></>}
                             {x.late && <span className="tag tag--red" style={{ marginLeft: 4 }}>late</span>}
@@ -405,6 +413,18 @@ export default function CycleMarksPage() {
             </div>}
           </>
         )}
+      {code && (
+        <div role="dialog" aria-modal="true" onClick={() => setCode(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,20,18,.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '5vh 12px', overflowY: 'auto' }}>
+          <div className="sheet" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 900, padding: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, gap: 10 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700 }}>{code.student?.name} <span className="muted data" style={{ fontWeight: 400, fontSize: 13 }}>{code.student?.roll}</span> · code</h2>
+              <button className="btn btn--secondary btn--sm" style={{ marginLeft: 'auto' }} onClick={() => setCode(null)}>Close</button>
+            </div>
+            <div style={{ display: 'grid', gap: 12 }}>{code.files.map((f, i) => <CodeView key={i} file={f} maxHeight={520} />)}</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

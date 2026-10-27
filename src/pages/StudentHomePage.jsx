@@ -4,7 +4,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, Link } from 'react-router-dom'
 import studentApi, { studentSignedIn, studentSignOut } from '../api/student'
-import { resizeImage } from '../utils/image'
+import { resizeImage, shrinkScreenshot } from '../utils/image'
+import { CodeView, CodeFilesEditor } from '../components/CodeView'
 import { useOrg } from '../context/OrgContext'
 
 const IST = { timeZone: 'Asia/Kolkata' }
@@ -32,20 +33,19 @@ function Scale({ value, onChange, labels = ['1', '2', '3', '4', '5'] }) {
   )
 }
 
-// Shrink a picked image to at most 1280px wide JPEG (keeps uploads small on phones)
-function readImage(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image(), url = URL.createObjectURL(file)
-    img.onload = () => {
-      const k = Math.min(1, 1280 / img.width), c = document.createElement('canvas')
-      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k)
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
-      URL.revokeObjectURL(url)
-      resolve({ data: c.toDataURL('image/jpeg', 0.82).split(',')[1], contentType: 'image/jpeg' })
-    }
-    img.onerror = () => reject(new Error('Could not read that image'))
-    img.src = url
-  })
+// "Thank you" pop-up after a student sends something (class check-in, project).
+function ThanksModal({ title = 'Thank you!', text, onClose }) {
+  return (
+    <div role="dialog" aria-modal="true" onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(15,20,18,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxWidth: 340, width: '100%', padding: '28px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 40, lineHeight: 1 }}>🙏</div>
+        <h2 style={{ fontSize: 20, fontWeight: 700, margin: '12px 0 6px' }}>{title}</h2>
+        <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>{text}</p>
+        <button className="btn btn--primary" style={{ width: '100%' }} autoFocus onClick={onClose}>OK</button>
+      </div>
+    </div>
+  )
 }
 
 // Today's class check-in. Once answered, the questions fold away into one line
@@ -93,38 +93,38 @@ function PulseCard({ p, onDone }) {
           <button className="btn btn--quiet btn--sm" onClick={() => setEditing(true)}>Change</button>
         </div>
       ) : null}
-      {thanks && (
-        <div role="dialog" aria-modal="true" onClick={() => setThanks(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(15,20,18,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxWidth: 340, width: '100%', padding: '28px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: 40, lineHeight: 1 }}>🙏</div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, margin: '12px 0 6px' }}>Thank you!</h2>
-            <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>
-              {thanks.demo ? thanks.text : 'Your answer for today\'s class is saved. It helps your trainer see how the class went.'}
-            </p>
-            <button className="btn btn--primary" style={{ width: '100%' }} autoFocus onClick={() => setThanks(null)}>OK</button>
-          </div>
-        </div>
-      )}
+      {thanks && <ThanksModal text={thanks.demo ? thanks.text : 'Your answer for today\'s class is saved. It helps your trainer see how the class went.'} onClose={() => setThanks(null)} />}
     </>
   )
 }
 
+// Project submission. A GitHub link, OR the code pasted file by file (for anyone
+// who could not push), or both. Once submitted the form folds into a summary
+// ("Edit my submission" while it is still open) and a thank-you pop-up confirms it.
 function ProjectCard({ cycle, project, onDone }) {
   const s = project.submission
-  const [gh, setGh] = useState(s?.githubUrl || ''), [live, setLive] = useState(s?.liveUrl || ''), [note, setNote] = useState(s?.note || '')
-  const [shot, setShot] = useState(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState(null)
   const canSubmit = project.state === 'open'
+  const [editing, setEditing] = useState(canSubmit && !s)
+  const [gh, setGh] = useState(s?.githubUrl || ''), [live, setLive] = useState(s?.liveUrl || ''), [note, setNote] = useState(s?.note || '')
+  const [files, setFiles] = useState(s?.files || [])
+  const [showCode, setShowCode] = useState(!!s?.files?.length)
+  const [shot, setShot] = useState(null), [busy, setBusy] = useState(false), [err, setErr] = useState('')
+  const [thanks, setThanks] = useState(null), [openFile, setOpenFile] = useState(null)
+  useEffect(() => { if (!canSubmit) setEditing(false); else if (!s) setEditing(true) }, [canSubmit])
+  const filled = files.filter(f => f.code.trim())
   async function pick(e) {
     const f = e.target.files?.[0]; if (!f) return
-    try { setShot(await readImage(f)) } catch (err) { setMsg({ ok: false, t: err.message }) }
+    setErr('')
+    try { setShot(await shrinkScreenshot(f)) } catch (er) { setErr(er.message); e.target.value = '' }
   }
   async function send() {
-    setBusy(true); setMsg(null)
+    setBusy(true); setErr('')
     try {
-      const { data } = await studentApi.post('/student/submission', { cycleId: cycle.id, githubUrl: gh, liveUrl: live, note, ...(shot ? { screenshot: shot } : {}) })
-      setMsg({ ok: true, t: data.demo ? data.message : 'Submitted. You can submit again to change it while submission is open.' }); setShot(null); onDone()
-    } catch (e) { setMsg({ ok: false, t: e.response?.data?.message || 'Could not submit' }) }
+      const { data } = await studentApi.post('/student/submission', { cycleId: cycle.id, githubUrl: gh, liveUrl: live, note,
+        files: filled.map(({ name, language, code }) => ({ name, language, code })), ...(shot ? { screenshot: shot } : {}) })
+      setThanks(data.demo ? data.message : `Your Cycle ${cycle.number} project is submitted. Your trainer will see it on the marks page.`)
+      setShot(null); setEditing(false); onDone()
+    } catch (e) { setErr(e.response?.data?.message || 'Could not submit') }
     finally { setBusy(false) }
   }
   return (
@@ -134,26 +134,49 @@ function ProjectCard({ cycle, project, onDone }) {
         {canSubmit ? <>Submission is <b style={{ color: 'var(--tick)' }}>open</b> until {fmtDT(project.closesAt)}.</>
           : <>Submission is closed — your trainer opens it in class on project day.</>}
       </p>
-      {s && <div className="banner banner--success" style={{ marginBottom: 12 }}>
-        Submitted {fmtDT(s.submittedAt)}{s.late ? ' (after project day)' : ''} — <a href={s.githubUrl} target="_blank" rel="noreferrer">{s.githubUrl}</a>{s.liveUrl && <> · <a href={s.liveUrl} target="_blank" rel="noreferrer">live</a></>}{s.hasScreenshot ? ' · screenshot ✓' : ''}
-      </div>}
-      {canSubmit && (
-        <div style={{ display: 'grid', gap: 10 }}>
-          <div className="field" style={{ margin: 0 }}><label>GitHub repository link *</label>
-            <input className="ctl" value={gh} onChange={e => setGh(e.target.value)} placeholder="https://github.com/yourname/project" /></div>
+
+      {s && !editing && (
+        <div style={{ borderLeft: '3px solid var(--tick)', paddingLeft: 12, display: 'grid', gap: 6 }}>
+          <div style={{ fontSize: 14 }}><b style={{ color: 'var(--tick)' }}>✓ Project submitted</b> <span className="muted">{fmtDT(s.submittedAt)}{s.late ? ' (after project day)' : ''}</span></div>
+          <div style={{ fontSize: 13, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {s.githubUrl && <a href={s.githubUrl} target="_blank" rel="noreferrer">GitHub ↗</a>}
+            {s.liveUrl && <a href={s.liveUrl} target="_blank" rel="noreferrer">Live ↗</a>}
+            {s.hasScreenshot && <span className="muted">screenshot ✓</span>}
+          </div>
+          {s.files?.length > 0 && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {s.files.map((f, i) => <button key={i} type="button" className={`btn btn--sm ${openFile === i ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setOpenFile(openFile === i ? null : i)}>{f.name}</button>)}
+          </div>}
+          {openFile != null && s.files?.[openFile] && <CodeView file={s.files[openFile]} maxHeight={300} />}
+          {canSubmit && <div><button className="btn btn--quiet btn--sm" style={{ paddingLeft: 0 }} onClick={() => { setEditing(true); setOpenFile(null) }}>Edit my submission</button></div>}
+        </div>
+      )}
+
+      {canSubmit && editing && (
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div className="field" style={{ margin: 0 }}><label>GitHub repository link {filled.length ? <span className="muted" style={{ fontWeight: 400 }}>(optional — you pasted code)</span> : '*'}</label>
+            <input className="ctl" value={gh} onChange={e => setGh(e.target.value)} placeholder="https://github.com/yourname/project" inputMode="url" autoCapitalize="off" /></div>
+          {!showCode
+            ? <button type="button" className="btn btn--quiet btn--sm" style={{ justifySelf: 'start', paddingLeft: 0 }} onClick={() => { setShowCode(true); if (!files.length) setFiles([{ name: '', language: 'javascript', code: '' }]) }}>Couldn't push to GitHub? Paste your code instead →</button>
+            : <div className="field" style={{ margin: 0 }}>
+                <label>Your code <span className="muted" style={{ fontWeight: 400 }}>(optional — one box per file, up to 10)</span></label>
+                <CodeFilesEditor files={files} onChange={setFiles} />
+              </div>}
           <div className="field" style={{ margin: 0 }}><label>Live link (if deployed)</label>
-            <input className="ctl" value={live} onChange={e => setLive(e.target.value)} placeholder="https://…" /></div>
-          <div className="field" style={{ margin: 0 }}><label>Screenshot of output</label>
+            <input className="ctl" value={live} onChange={e => setLive(e.target.value)} placeholder="https://…" inputMode="url" autoCapitalize="off" /></div>
+          <div className="field" style={{ margin: 0 }}><label>Screenshot of output (optional)</label>
             <input className="ctl" type="file" accept="image/*" onChange={pick} style={{ paddingTop: 6 }} />
-            {shot && <span className="muted" style={{ fontSize: 12 }}>Image ready ✓</span>}</div>
+            {shot && <span className="muted" style={{ fontSize: 12 }}>Image ready ✓ ({Math.round(shot.data.length * 0.75 / 1024)} KB)</span>}
+            {!shot && s?.hasScreenshot && <span className="muted" style={{ fontSize: 12 }}>Your earlier screenshot stays unless you pick a new one.</span>}</div>
           <div className="field" style={{ margin: 0 }}><label>Note for your trainer (optional)</label>
             <textarea className="ctl" value={note} onChange={e => setNote(e.target.value)} maxLength={500} style={{ minHeight: 60 }} /></div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button className="btn btn--primary" disabled={busy || !gh.trim()} onClick={send}>{busy ? 'Submitting…' : s ? 'Submit again' : 'Submit project'}</button>
-            {msg && <span style={{ fontSize: 13, color: msg.ok ? 'var(--tick)' : 'var(--red-ink)' }}>{msg.t}</span>}
+            <button className="btn btn--primary" disabled={busy || (!gh.trim() && !filled.length)} onClick={send}>{busy ? 'Submitting…' : s ? 'Save changes' : 'Submit project'}</button>
+            {s && <button className="btn btn--quiet btn--sm" onClick={() => setEditing(false)}>Cancel</button>}
+            {err && <span style={{ fontSize: 13, color: 'var(--red-ink)' }}>{err}</span>}
           </div>
         </div>
       )}
+      {thanks && <ThanksModal text={thanks} onClose={() => setThanks(null)} />}
     </Card>
   )
 }
