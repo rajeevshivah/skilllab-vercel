@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import studentApi from '../api/student'
+import { useOrg } from '../context/OrgContext'
 
 export default function StudentLoginPage() {
+  const { brand } = useOrg()
   const [mode, setMode] = useState('login')     // login | setup
   const [roll, setRoll] = useState('')
   const [code, setCode] = useState('')
@@ -29,7 +31,7 @@ export default function StudentLoginPage() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--page)', padding: 16 }}>
       <div className="sheet" style={{ width: '100%', maxWidth: 400, padding: 30 }}>
-        <div className="muted" style={{ fontSize: 13, fontWeight: 600, letterSpacing: '.04em' }}>SHEAT SKILL LAB</div>
+        <div className="muted" style={{ fontSize: 13, fontWeight: 600, letterSpacing: '.04em' }}>{brand.toUpperCase()}</div>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: '4px 0 18px' }}>Student sign in</h1>
 
         <div style={{ display: 'flex', border: '1px solid var(--rule-strong)', borderRadius: 6, overflow: 'hidden', marginBottom: 20 }}>

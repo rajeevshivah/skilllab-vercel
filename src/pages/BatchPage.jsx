@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
 
-const TABS = ['Students', 'Plan', 'Toppers', 'Student login']
+const TABS = ['Students', 'Toppers', 'Student login']
 
 export default function BatchPage() {
   const { id } = useParams()
@@ -68,7 +68,6 @@ export default function BatchPage() {
       {alert && <div className={`banner banner--${alert.type === 'success' ? 'success' : 'error'}`}>{alert.msg}</div>}
 
       {tab === 'Students' && <StudentsTab batchId={id} user={user} show={show} canEdit={canEdit} />}
-      {tab === 'Plan' && <PlanTab batchId={id} show={show} canEdit={canEdit} />}
       {tab === 'Toppers' && <ToppersTab batchId={id} user={user} show={show} canEdit={canEdit} />}
       {tab === 'Student login' && canEdit && <StudentAccessTab batchId={id} show={show} />}
 
@@ -81,9 +80,7 @@ export default function BatchPage() {
 function DailyLogSheet({ batchId, show, canEdit, onClose }) {
   const today = new Date().toISOString().slice(0, 10)
   const [date, setDate] = useState(today)
-  const [plan, setPlan] = useState(null)
   const [roster, setRoster] = useState([])
-  const [covered, setCovered] = useState([])
   const [status, setStatus] = useState('done')
   const [notes, setNotes] = useState('')
   const [prepLink, setPrepLink] = useState('')
@@ -103,14 +100,12 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
   async function loadDay() {
     setLoading(true)
     try {
-      // all four at once (they don't depend on each other)
-      const [p, r, pl, one] = await Promise.all([
-        api.get(`/plans/${batchId}`),
+      // all at once (they don't depend on each other)
+      const [r, pl, one] = await Promise.all([
         api.get('/students', { params: { batch: batchId } }),
         api.get('/cycleplans/for-date/lookup', { params: { batch: batchId, date } }).catch(() => null),
         api.get('/logs/one', { params: { batch: batchId, date } }),
       ])
-      setPlan(p.data.plan)
       setRoster(r.data.students)
       let plannedNo = ''
       if (pl) {
@@ -119,19 +114,18 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
       } else { setPlanned(null); setPlanList([]) }
       if (one.data.log) {
         const L = one.data.log
-        setCovered(L.topicsCovered.map(String)); setStatus(L.status); setNotes(L.notes || ''); setPrepLink(L.prepLink || '')
+        setStatus(L.status); setNotes(L.notes || ''); setPrepLink(L.prepLink || '')
         setPlanClass(L.planClass ?? plannedNo); setGithub(L.github || '')
         const pmap = {}; L.attendance.forEach(a => pmap[a.student] = a.present); setPresent(pmap)
       } else {
         const pmap = {}; r.data.students.forEach(s => pmap[s._id] = true)
-        setPresent(pmap); setCovered([]); setStatus('done'); setNotes(''); setPrepLink('')
+        setPresent(pmap); setStatus('done'); setNotes(''); setPrepLink('')
         setPlanClass(plannedNo); setGithub('')
       }
     } catch (e) { show(e.response?.data?.message || 'Failed to load day', 'error') }
     finally { setLoading(false) }
   }
 
-  function toggleTopic(tid) { setCovered(c => c.includes(tid) ? c.filter(x => x !== tid) : [...c, tid]) }
   function toggleAll(val) { const m = {}; roster.forEach(s => m[s._id] = val); setPresent(m) }
 
   const noClass = status === 'no-class'
@@ -146,7 +140,7 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
     setSaving(true)
     try {
       await api.post('/logs', {
-        batch: batchId, date, topicsCovered: covered, status, notes, prepLink,
+        batch: batchId, date, status, notes, prepLink,
         planClass: noClass ? null : (planClass === '' ? null : Number(planClass)),
         github: noClass ? '' : github,
         attendance: noClass ? [] : roster.map(s => ({ student: s._id, present: !!present[s._id] })),
@@ -159,7 +153,6 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
     finally { setSaving(false) }
   }
 
-  const nextTopic = plan?.topics?.find(t => t.status !== 'done')
   const presentCount = roster.filter(s => present[s._id]).length
   const aq = attQuery.trim().toLowerCase()
   const attShown = aq
@@ -181,7 +174,6 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
                 <label htmlFor="log-date">Date</label>
                 <input id="log-date" type="date" className="ctl" value={date} onChange={e => setDate(e.target.value)} />
               </div>
-              {nextTopic && <p className="muted" style={{ fontSize: 13, marginTop: -10 }}>Suggested next topic: <b style={{ color: 'var(--ink)' }}>{nextTopic.title}</b></p>}
 
               {planned && (planned.title || planned.notes) && (
                 <div className="banner" style={{ background: 'var(--blue-wash)', color: 'var(--blue-ink)', borderColor: 'rgba(30,77,183,0.25)', marginBottom: 0 }}>
@@ -196,24 +188,6 @@ function DailyLogSheet({ batchId, show, canEdit, onClose }) {
                   )}
                 </div>
               )}
-
-              <div>
-                <h3 className="section-title" style={{ fontSize: 15, marginBottom: 10 }}>Topics covered today</h3>
-                {(!plan || plan.topics.length === 0)
-                  ? <p className="muted" style={{ fontSize: 13 }}>No plan yet. Add topics in the Plan tab.</p>
-                  : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {plan.topics.map(t => {
-                      const on = covered.includes(String(t._id))
-                      return (
-                        <button key={t._id} type="button" onClick={() => toggleTopic(String(t._id))}
-                          className={`tag ${on ? 'tag--blue' : t.status === 'done' ? 'tag--tick' : 'tag--muted'}`}
-                          style={{ cursor: 'pointer', border: on ? '1px solid var(--blue-ink)' : undefined }}>
-                          {t.status === 'done' && !on && 'Done · '}{t.title}
-                        </button>
-                      )
-                    })}
-                  </div>}
-              </div>
 
               <div style={{ display: 'grid', gap: 14, padding: 14, border: '1px solid var(--rule-strong)', borderRadius: 8 }}>
                 <div className="muted" style={{ fontSize: 12.5 }}>
@@ -582,94 +556,6 @@ function StudentsTab({ batchId, user, show, canEdit }) {
                 </table>
               </div>
             )}
-    </div>
-  )
-}
-
-/* ─────────────── PLAN ─────────────── */
-function PlanTab({ batchId, show, canEdit }) {
-  const [topics, setTopics] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [newTitle, setNewTitle] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => { load() }, [])
-  async function load() {
-    setLoading(true)
-    try { const { data } = await api.get(`/plans/${batchId}`); setTopics(data.plan?.topics || []) }
-    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
-    finally { setLoading(false) }
-  }
-
-  function addTopic() {
-    if (!newTitle.trim()) return
-    setTopics(t => [...t, { title: newTitle.trim(), order: t.length, status: 'pending', _id: `tmp_${Date.now()}` }])
-    setNewTitle('')
-  }
-  function move(i, dir) {
-    const j = i + dir; if (j < 0 || j >= topics.length) return
-    const copy = [...topics]; [copy[i], copy[j]] = [copy[j], copy[i]]; setTopics(copy)
-  }
-  function setStatus(i, status) { setTopics(t => t.map((x, idx) => idx === i ? { ...x, status } : x)) }
-  function del(i) { setTopics(t => t.filter((_, idx) => idx !== i)) }
-
-  async function save() {
-    setSaving(true)
-    try {
-      const payload = topics.map((t, i) => ({ _id: (t._id && !String(t._id).startsWith('tmp_')) ? t._id : undefined, title: t.title, order: i, status: t.status }))
-      const { data } = await api.put(`/plans/${batchId}`, { topics: payload })
-      setTopics(data.plan.topics); show('Plan saved.')
-    } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
-    finally { setSaving(false) }
-  }
-
-  if (loading) return <div className="muted">Loading…</div>
-  const done = topics.filter(t => t.status === 'done').length
-  const nextIdx = topics.findIndex(t => t.status !== 'done')
-
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-        <p className="muted" style={{ fontSize: 13 }}>{done}/{topics.length} topics done · "next topic" on Today is the first pending one.</p>
-        {canEdit && <button className="btn btn--primary btn--sm" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save plan'}</button>}
-      </div>
-
-      {canEdit && <div className="sheet" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <input className="ctl" placeholder="Add a topic…" value={newTitle}
-            onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTopic()} />
-          <button className="btn btn--secondary" onClick={addTopic}>Add</button>
-        </div>
-      </div>}
-
-      {topics.length === 0 ? <div className="empty"><h2>No topics yet</h2><p>Add the ordered topic list for this batch.</p></div>
-        : <div style={{ display: 'grid', gap: 2 }}>
-          {topics.map((t, i) => {
-            const isDone = t.status === 'done'
-            const isNext = i === nextIdx
-            return (
-              <div key={t._id || i} style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 6,
-                background: isNext ? 'var(--blue-wash)' : 'transparent', borderBottom: '1px solid var(--rule)',
-              }}>
-                <span className="data" style={{ color: isDone ? 'var(--tick)' : 'var(--ink-soft)', fontSize: 13, minWidth: 22 }}>{isDone ? '✓' : i + 1}</span>
-                <span style={{
-                  flex: 1, fontWeight: isNext ? 700 : 500,
-                  textDecoration: isDone ? 'line-through' : 'none',
-                  color: isDone ? 'var(--ink-soft)' : isNext ? 'var(--ink)' : 'var(--ink-soft)',
-                }}>{t.title}</span>
-                <select className="ctl" style={{ width: 'auto', height: 30, padding: '0 8px' }} value={t.status} disabled={!canEdit} onChange={e => setStatus(i, e.target.value)}>
-                  <option value="pending">Pending</option>
-                  <option value="in-progress">In progress</option>
-                  <option value="done">Done</option>
-                </select>
-                {canEdit && <button className="btn btn--secondary btn--sm" onClick={() => move(i, -1)} title="Move up">↑</button>}
-                {canEdit && <button className="btn btn--secondary btn--sm" onClick={() => move(i, 1)} title="Move down">↓</button>}
-                {canEdit && <button className="btn btn--danger btn--sm" onClick={() => del(i)}>Remove</button>}
-              </div>
-            )
-          })}
-        </div>}
     </div>
   )
 }

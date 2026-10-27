@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, Link } from 'react-router-dom'
 import studentApi, { studentSignedIn, studentSignOut } from '../api/student'
 import { resizeImage } from '../utils/image'
+import { useOrg } from '../context/OrgContext'
 
 const IST = { timeZone: 'Asia/Kolkata' }
 const fmtDay = (ymd) => ymd ? new Date(ymd + 'T12:00:00+05:30').toLocaleDateString('en-IN', { ...IST, weekday: 'short', day: 'numeric', month: 'short' }) : 'Date not set'
@@ -47,31 +48,65 @@ function readImage(file) {
   })
 }
 
+// Today's class check-in. Once answered, the questions fold away into one line
+// (with "Change" until midnight), and a thank-you pop-up confirms it.
 function PulseCard({ p, onDone }) {
   const [covered, setCovered] = useState(p.mine?.covered || '')
   const [u, setU] = useState(p.mine?.understanding || 0)
-  const [busy, setBusy] = useState(false), [msg, setMsg] = useState(null)
+  const [editing, setEditing] = useState(!p.mine)
+  const [busy, setBusy] = useState(false), [err, setErr] = useState('')
+  const [thanks, setThanks] = useState(null)
   async function send() {
-    setBusy(true); setMsg(null)
-    try { const { data } = await studentApi.post('/student/pulse', { covered, understanding: u }); setMsg({ ok: true, t: data.demo ? data.message : 'Thanks! Your answer is saved.' }); onDone() }
-    catch (e) { setMsg({ ok: false, t: e.response?.data?.message || 'Could not save' }) }
+    setBusy(true); setErr('')
+    try {
+      const { data } = await studentApi.post('/student/pulse', { covered, understanding: u })
+      setThanks({ demo: data.demo, text: data.demo ? data.message : null })
+      setEditing(false); onDone()
+    } catch (e) { setErr(e.response?.data?.message || 'Could not save') }
     finally { setBusy(false) }
   }
+  const answered = p.mine || (thanks && !thanks.demo ? { covered, understanding: u } : null)
   return (
-    <Card title="Today's class" accent="var(--blue-ink)" tour="st-today">
-      <div style={{ fontWeight: 600 }}>Class {p.number} — {p.title}</div>
-      <p className="muted" style={{ fontSize: 13, margin: '4px 0 12px' }}>Answer after class (until midnight). Anonymous — your trainer sees only the class total.</p>
-      <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Did we cover today's topic?</label>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        {Object.entries(COVER).map(([k, l]) => <button key={k} type="button" className={`btn btn--sm ${covered === k ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setCovered(k)}>{l}</button>)}
-      </div>
-      <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6 }}>How well did you understand it? <span className="muted" style={{ fontWeight: 400 }}>(1 = not at all, 5 = fully)</span></label>
-      <Scale value={u} onChange={setU} />
-      <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button className="btn btn--primary btn--sm" disabled={busy || !covered || !u} onClick={send}>{p.mine ? 'Update answer' : 'Send'}</button>
-        {msg && <span style={{ fontSize: 13, color: msg.ok ? 'var(--tick)' : 'var(--red-ink)' }}>{msg.t}</span>}
-      </div>
-    </Card>
+    <>
+      {editing ? (
+        <Card title="Today's class" accent="var(--blue-ink)" tour="st-today">
+          <div style={{ fontWeight: 600 }}>Class {p.number} — {p.title}</div>
+          <p className="muted" style={{ fontSize: 13, margin: '4px 0 12px' }}>Answer after class (until midnight). Anonymous — your trainer sees only the class total.</p>
+          <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Did we cover today's topic?</label>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            {Object.entries(COVER).map(([k, l]) => <button key={k} type="button" className={`btn btn--sm ${covered === k ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setCovered(k)}>{l}</button>)}
+          </div>
+          <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6 }}>How well did you understand it? <span className="muted" style={{ fontWeight: 400 }}>(1 = not at all, 5 = fully)</span></label>
+          <Scale value={u} onChange={setU} />
+          <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn--primary btn--sm" disabled={busy || !covered || !u} onClick={send}>{busy ? 'Sending…' : p.mine ? 'Update answer' : 'Send'}</button>
+            {p.mine && <button className="btn btn--quiet btn--sm" onClick={() => setEditing(false)}>Cancel</button>}
+            {err && <span style={{ fontSize: 13, color: 'var(--red-ink)' }}>{err}</span>}
+          </div>
+        </Card>
+      ) : answered ? (
+        <div className="sheet" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, borderLeft: '3px solid var(--tick)' }}>
+          <span style={{ flex: 1, fontSize: 14, lineHeight: 1.45 }}>
+            <b style={{ color: 'var(--tick)' }}>✓ Today's class answered</b><br />
+            <span className="muted">Covered: {COVER[answered.covered]} · understanding {answered.understanding}/5</span>
+          </span>
+          <button className="btn btn--quiet btn--sm" onClick={() => setEditing(true)}>Change</button>
+        </div>
+      ) : null}
+      {thanks && (
+        <div role="dialog" aria-modal="true" onClick={() => setThanks(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,20,18,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxWidth: 340, width: '100%', padding: '28px 24px', textAlign: 'center' }}>
+            <div style={{ fontSize: 40, lineHeight: 1 }}>🙏</div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: '12px 0 6px' }}>Thank you!</h2>
+            <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>
+              {thanks.demo ? thanks.text : 'Your answer for today\'s class is saved. It helps your trainer see how the class went.'}
+            </p>
+            <button className="btn btn--primary" style={{ width: '100%' }} autoFocus onClick={() => setThanks(null)}>OK</button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -331,6 +366,7 @@ function Progress({ me }) {
 const TABS = [['today', 'Today'], ['plan', 'Plan'], ['progress', 'Progress'], ['profile', 'Profile']]
 
 export default function StudentHomePage() {
+  const { brand } = useOrg()
   const [me, setMe] = useState(null), [err, setErr] = useState(null)
   const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('sl_st_tab') || 'today' } catch { return 'today' } })
   const go = (t) => { setTab(t); try { sessionStorage.setItem('sl_st_tab', t) } catch {} window.scrollTo({ top: 0 }) }
@@ -356,7 +392,7 @@ export default function StudentHomePage() {
       <header style={{ background: 'linear-gradient(180deg, var(--blue-wash), var(--page))' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', padding: '14px 16px 6px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>SHEAT Skill Lab</span>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>{brand}</span>
             <Link to="/" style={{ fontSize: 13 }}>Hall of Fame</Link>
           </div>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>

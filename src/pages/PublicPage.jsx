@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
+import { useOrg } from '../context/OrgContext'
 
 /* ────────────────────────────────────────────────────────────────
    Skill Lab — public Hall of Fame ("the Honours Board")
@@ -191,7 +192,7 @@ function CyclePanel({ cycle }) {
   return (
     <section className="board-cycle" id={anchor}>
       <header className="board-cycle-head">
-        <span className="board-cycle-name">{cycle.batch?.name || 'Skill Lab'}{cycle.batch?.track ? ` · ${cycle.batch.track}` : ''}</span>
+        <span className="board-cycle-name">{cycle.batch?.name || ''}{cycle.batch?.track ? ` · ${cycle.batch.track}` : ''}</span>
         <span className="board-cycle-meta">{label}, {dateRange(cycle.startDate, cycle.endDate)}</span>
         <button className="board-copy" onClick={copyLink}>{copied ? 'Link copied' : 'Copy link'}</button>
       </header>
@@ -216,6 +217,7 @@ function Skeleton() {
 /* ── page ─────────────────────────────────────────────────── */
 
 export default function PublicPage() {
+  const { name: collegeName, program, has } = useOrg()
   const [semesters, setSemesters] = useState([])
   const [semId, setSemId]         = useState('')
   const [cycles, setCycles]       = useState([])
@@ -287,16 +289,16 @@ export default function PublicPage() {
       <div className="board-shell">
 
         <div className="board-top">
-          <div className="board-mark">SHEAT College of Engineering</div>
+          <div className="board-mark">{collegeName}</div>
           <span style={{ display: 'flex', gap: 18 }}>
-            <Link to="/student/login" className="board-staff">Student login</Link>
+            {has('studentApp') && <Link to="/student/login" className="board-staff">Student login</Link>}
             <Link to="/login" className="board-staff">Staff login</Link>
           </span>
         </div>
 
         <header className="board-head">
           <h1 className="board-title">Hall of Fame</h1>
-          {activeSem && <p className="board-sub">Skill Lab, {activeSem.name}</p>}
+          {activeSem && <p className="board-sub">{program}, {activeSem.name}</p>}
         </header>
 
         <hr className="board-rule" />
@@ -358,8 +360,8 @@ export default function PublicPage() {
         {!loading && !failed && filtered.map(c => <CyclePanel key={c._id} cycle={c} />)}
 
         <footer className="board-foot">
-          <span>SHEAT College of Engineering, Varanasi</span>
-          <span>Skill Lab — practical training, measured</span>
+          <span>{collegeName}</span>
+          <span>{program} — every class, proven · powered by Pramakra</span>
         </footer>
 
       </div>

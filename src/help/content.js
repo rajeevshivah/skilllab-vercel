@@ -101,7 +101,7 @@ const HELP = {
       { t: 'Plans are locked once complete', d: 'New cycles come with dated class rows (from the batch timetable, skipping holidays). Trainers fill the topics freely until every class has one — then the plan counts as done (credited to whoever completed it) and is locked. After that only the admin changes it, or trainers while the admin has opened editing. Every change is recorded: who, when and what.' },
       { t: 'Two people editing at once', d: 'Each class saves on its own. If someone else changed the same class after you opened it, your save is refused with a message instead of overwriting theirs — the page refreshes every 15 seconds and highlights what others just changed.' },
       { t: 'Plan first, log daily', d: 'Plan is filled in the planning meeting before the cycle. Each day after class, the trainer fills the daily class log on the Batch page — what was taught + attendance.' },
-      { t: 'Behind plan gets flagged', d: 'The Dashboard flags batches that have not logged today or have covered under 40% of their syllabus (Batch → Plan tab). No log = it did not happen, as far as the system knows.' },
+      { t: 'Missing logs get flagged', d: 'The Today page flags a class that is not logged yet and any past class of the cycle with no log. No log = it did not happen, as far as the system knows.' },
       { t: 'Dates decide the cycle', d: 'A class belongs to the cycle whose start–end dates include its date. Attendance and marks for a cycle only count classes inside those dates.' },
     ],
     flow: [

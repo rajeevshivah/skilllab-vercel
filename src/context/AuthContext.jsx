@@ -39,9 +39,11 @@ export function AuthProvider({ children }) {
 
   const isSuperAdmin = user?.role === 'superadmin'
   const isTrainer    = user?.role === 'trainer' || user?.role === 'superadmin'
+  const isViewer     = user?.role === 'viewer'          // management: reads everything, changes nothing
+  const isOwner      = !!user?.platformOwner             // platform owner (owner console)
 
   return (
-    <AuthCtx.Provider value={{ user, login, logout, loading, isSuperAdmin, isTrainer }}>
+    <AuthCtx.Provider value={{ user, login, logout, loading, isSuperAdmin, isTrainer, isViewer, isOwner }}>
       {children}
     </AuthCtx.Provider>
   )

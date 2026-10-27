@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
+import { useOrg } from '../context/OrgContext'
 
 // "Connect AI" — lets any signed-in user create a personal MCP token so an AI
 // app (Claude Code, Claude Desktop, Cursor, VS Code…) can read Skill Lab data
@@ -72,6 +73,7 @@ async function copy(text, setCopied, key) {
 }
 
 export default function ConnectAIPage() {
+  const { program } = useOrg()
   const { user } = useAuth()
   const [tokens, setTokens]   = useState([])
   const [mcpUrl, setMcpUrl]   = useState('')
@@ -129,7 +131,7 @@ export default function ConnectAIPage() {
     <div className="page" style={{ maxWidth: 900 }}>
       <h1 className="page-title">Connect AI</h1>
       <p className="muted" style={{ fontSize: 14, marginTop: 4, marginBottom: 22, maxWidth: '68ch', lineHeight: 1.6 }}>
-        Let an AI app such as Claude or Cursor answer questions from Skill Lab data, e.g. "who was not evaluated in MERN Cycle 2?"
+        Let an AI app such as Claude or Cursor answer questions from {program} data, e.g. "who was not evaluated in MERN Cycle 2?"
         or "which BTech 3rd students are below 50% attendance?". The AI acts as <b>you</b>:{' '}
         {isAdmin ? 'as superadmin it can see every batch.' : 'it sees only the batches you are assigned to.'}{' '}
         It can also <b>fill the cycle report, marks, Top 3, daily logs and the cycle plan</b>, but it always shows you a

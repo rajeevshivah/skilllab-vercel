@@ -12,7 +12,7 @@ const pageLoaders = {
   SemestersPage: () => import('./pages/SemestersPage'),
   BatchesPage: () => import('./pages/BatchesPage'),
   BatchPage: () => import('./pages/BatchPage'),
-  PlacementPage: () => import('./pages/PlacementPage'),
+  TopStudentsPage: () => import('./pages/TopStudentsPage'),
   UsersPage: () => import('./pages/UsersPage'),
   DuplicatesPage: () => import('./pages/DuplicatesPage'),
   CyclesPage: () => import('./pages/CyclesPage'),
@@ -27,6 +27,7 @@ const pageLoaders = {
   MeetingPage: () => import('./pages/MeetingPage'),
   StudentLoginPage: () => import('./pages/StudentLoginPage'),
   StudentHomePage: () => import('./pages/StudentHomePage'),
+  PlatformPage: () => import('./pages/PlatformPage'),
 }
 // After a new deploy an open tab may ask for a file that no longer exists:
 // reload once to pick up the new version instead of showing a broken page.
@@ -40,7 +41,7 @@ const DashboardPage = lazyPage(pageLoaders.DashboardPage)
 const SemestersPage = lazyPage(pageLoaders.SemestersPage)
 const BatchesPage = lazyPage(pageLoaders.BatchesPage)
 const BatchPage = lazyPage(pageLoaders.BatchPage)
-const PlacementPage = lazyPage(pageLoaders.PlacementPage)
+const TopStudentsPage = lazyPage(pageLoaders.TopStudentsPage)
 const UsersPage = lazyPage(pageLoaders.UsersPage)
 const DuplicatesPage = lazyPage(pageLoaders.DuplicatesPage)
 const CyclesPage = lazyPage(pageLoaders.CyclesPage)
@@ -55,6 +56,7 @@ const PlannerPage = lazyPage(pageLoaders.PlannerPage)
 const MeetingPage = lazyPage(pageLoaders.MeetingPage)
 const StudentLoginPage = lazyPage(pageLoaders.StudentLoginPage)
 const StudentHomePage = lazyPage(pageLoaders.StudentHomePage)
+const PlatformPage = lazyPage(pageLoaders.PlatformPage)
 
 
 const Waiting = () => <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'60vh',color:'var(--ink-soft)' }}>Loading…</div>
@@ -85,7 +87,8 @@ export default function App() {
         <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
         <Route path="/batches"   element={<Protected><BatchesPage /></Protected>} />
         <Route path="/batch/:id" element={<Protected><BatchPage /></Protected>} />
-        <Route path="/placement" element={<Protected><PlacementPage /></Protected>} />
+        <Route path="/top-students" element={<Protected><TopStudentsPage /></Protected>} />
+        <Route path="/placement" element={<Navigate to="/top-students" replace />} />
         <Route path="/cycles"     element={<Protected><CyclesPage /></Protected>} />
         <Route path="/cycle/:id"  element={<Protected><CycleReportPage /></Protected>} />
         <Route path="/cycle/:id/marks" element={<Protected><CycleMarksPage /></Protected>} />
@@ -102,6 +105,7 @@ export default function App() {
         <Route path="/semesters" element={<Protected admin><SemestersPage /></Protected>} />
         <Route path="/users"     element={<Protected admin><UsersPage /></Protected>} />
         <Route path="/duplicates" element={<Protected admin><DuplicatesPage /></Protected>} />
+        <Route path="/platform"  element={<Protected><PlatformPage /></Protected>} />
         <Route path="*"          element={<Navigate to="/" />} />
       </Routes>
       </Suspense>

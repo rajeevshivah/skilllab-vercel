@@ -18,7 +18,7 @@ const periodLabel = (p) => `Due ${fmtDay(p.key)} · Cycle${p.numbers.length > 1 
 const STATE = {
   'on-time': ['On time', 'tag--tick'],
   late:      ['Late', 'tag--red'],
-  admin:     ['Done by admin', 'tag--pencil'],
+  admin:     ['Done by admin · 0 pts', 'tag--red'],
   'admin-planned': ['Made by admin · not counted', 'tag--blue'],
   missing:   ['Not done', 'tag--red'],
   pending:   ['Pending', 'tag--muted'],
@@ -49,7 +49,7 @@ function ItemLine({ label, item, who }) {
       <span style={{ width: 92, fontWeight: 600 }}>{label}</span>
       <Tag state={item?.state} extra={extra} />
       <span className="muted" style={{ fontSize: 13 }}>
-        {who ? <>{who.admin ? <b style={{ color: 'var(--pencil)' }}>Updated by admin ({who.by})</b> : who.by} · {fmtDT(who.at)}</> : ''}
+        {who ? <>{who.admin ? <b style={{ color: 'var(--red-ink)' }}>Done by admin ({who.by}), not the trainer</b> : who.by} · {fmtDT(who.at)}</> : ''}
       </span>
       <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>{item?.max ? `${Math.round(item.points * 10) / 10}/${item.max}` : ''}</span>
     </div>
@@ -174,7 +174,7 @@ function Details({ r, isAdmin, me, onSaved }) {
         <div className="muted" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', margin: '12px 0 4px' }}>During the cycle</div>
         <ItemLine label="Cycle plan" item={r.items.plan} who={r.who.plan} />
         <div style={{ fontSize: 13.5, lineHeight: 1.7, marginTop: 6 }}>
-          <div><b>Daily logs:</b> {L.days ? <>{L.days} class day(s) — <span style={{ color: 'var(--tick)' }}>{L.onTime} same day</span>{L.late ? <>, <span style={{ color: 'var(--red-ink)' }}>{L.late} late</span></> : ''}{L.incomplete ? <>, <span style={{ color: 'var(--pencil)' }}>{L.incomplete} incomplete</span></> : ''}{L.admin ? <>, <span style={{ color: 'var(--pencil)' }}>{L.admin} by admin</span></> : ''}{L.missing ? <>, <span style={{ color: 'var(--red-ink)' }}>{L.missing} not logged</span></> : ''}{L.noClass ? <span className="muted"> · {L.noClass} no-class day(s) not counted</span> : ''}</> : 'no class days yet'}</div>
+          <div><b>Daily logs:</b> {L.days ? <>{L.days} class day(s) — <span style={{ color: 'var(--tick)' }}>{L.onTime} same day</span>{L.late ? <>, <span style={{ color: 'var(--red-ink)' }}>{L.late} late</span></> : ''}{L.incomplete ? <>, <span style={{ color: 'var(--pencil)' }}>{L.incomplete} incomplete</span></> : ''}{L.admin ? <>, <span style={{ color: 'var(--red-ink)', fontWeight: 700 }}>{L.admin} by admin</span></> : ''}{L.missing ? <>, <span style={{ color: 'var(--red-ink)' }}>{L.missing} not logged</span></> : ''}{L.noClass ? <span className="muted"> · {L.noClass} no-class day(s) not counted</span> : ''}</> : 'no class days yet'}</div>
           <div><b>Attendance taken:</b> {A.days ? `${A.taken} of ${A.days} days` : '—'}</div>
           <div><b>Students Moderate or above:</b> {O.evaluated ? `${O.good} of ${O.evaluated} evaluated` : '—'}</div>
           {r.lateEdits > 0 && <div><b>Changes after the deadline:</b> {r.lateEdits}</div>}
@@ -205,12 +205,73 @@ function Details({ r, isAdmin, me, onSaved }) {
   )
 }
 
+// Click a trainer → everything about them this semester, cycle by cycle, with the warning signs first.
+const PARTS = [['plan', 'Plan'], ['logs', 'Daily logs'], ['attendance', 'Attendance'], ['report', 'Form'], ['marks', 'Marks'], ['top3', 'Top 3'], ['outcomes', 'Outcomes']]
+function PartCell({ k, it }) {
+  if (!it) return <span className="muted">—</span>
+  if (k === 'logs') return it.days ? (
+    <span style={{ fontSize: 12.5 }}><b style={{ color: 'var(--tick)' }}>{it.onTime}</b>/{it.days} on time
+      {it.late ? <span style={{ color: 'var(--pencil)' }}> · {it.late} late</span> : null}{it.incomplete ? <span style={{ color: 'var(--pencil)' }}> · {it.incomplete} incomplete</span> : null}
+      {it.missing ? <span style={{ color: 'var(--red-ink)' }}> · {it.missing} missing</span> : null}{it.admin ? <b style={{ color: 'var(--red-ink)' }}> · {it.admin} by admin</b> : null}</span>) : <span className="muted">—</span>
+  if (k === 'attendance') return it.days ? <span style={{ fontSize: 12.5 }}>{it.taken}/{it.days} taken</span> : <span className="muted">—</span>
+  if (k === 'outcomes') return it.evaluated ? <span style={{ fontSize: 12.5 }}>{it.good}/{it.evaluated} Moderate+</span> : <span className="muted">—</span>
+  return <Tag state={it.state} extra={it.state === 'late' && it.lateDays ? `${it.lateDays} d` : ''} />
+}
+function TrainerModal({ t, onClose }) {
+  useEffect(() => { const k = (e) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [onClose])
+  const s = t.signs || {}
+  const signs = [
+    [s.adminDone + s.logsByAdmin, 'done by admin instead', 'var(--red-ink)'],
+    [s.missing + s.logsMissing, 'not done / not logged', 'var(--red-ink)'],
+    [s.late + s.logsLate, 'late or incomplete', 'var(--pencil)'],
+  ]
+  return (
+    <div role="dialog" aria-modal="true" aria-label={`${t.name} — performance`} onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(15,20,18,.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6vh 16px', overflowY: 'auto' }}>
+      <div className="sheet" onClick={e => e.stopPropagation()} style={{ width: 'min(1040px, 100%)', padding: 20, boxShadow: 'var(--shadow-float)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{t.name}</h2>
+            <div className="muted" style={{ fontSize: 13 }}>{t.cyclesScored} cycle{t.cyclesScored === 1 ? '' : 's'} scored this semester</div>
+          </div>
+          <div style={{ display: 'flex', gap: 22, alignItems: 'center' }}>
+            <div><div className="muted" style={{ fontSize: 12 }}>This cycle</div><ScoreBar score={t.thisCycle} /></div>
+            <div><div className="muted" style={{ fontSize: 12 }}>Semester average</div><ScoreBar score={t.semesterAvg} /></div>
+            <button className="btn btn--secondary btn--sm" onClick={onClose} aria-label="Close">Close ✕</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '14px 0' }}>
+          {signs.map(([n, l, c]) => (
+            <div key={l} style={{ border: `1px solid ${n ? c : 'var(--rule)'}`, background: n ? (c === 'var(--red-ink)' ? 'var(--red-wash)' : 'var(--pencil-wash)') : 'transparent', borderRadius: 8, padding: '8px 12px', minWidth: 170 }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: n ? c : 'var(--tick)' }}>{n}</div><div style={{ fontSize: 13 }}>{l}</div>
+            </div>))}
+        </div>
+        {(s.adminDone + s.logsByAdmin) > 0 && <p style={{ fontSize: 13, color: 'var(--red-ink)', margin: '0 0 10px' }}>Work done by the admin instead of the trainer earns the trainer 0 points — it means someone had to cover for them.</p>}
+        <div className="table-wrap">
+          <table className="table table--compact">
+            <thead><tr><th>Due</th><th>Batch</th><th>Score</th>{PARTS.map(([k, l]) => <th key={k}>{l}</th>)}</tr></thead>
+            <tbody>{(t.history || []).slice().reverse().map(h => (
+              <tr key={h.cycleId} style={h.here ? { background: 'var(--blue-wash)' } : undefined}>
+                <td style={{ whiteSpace: 'nowrap' }}>{fmtDay(h.period)}</td>
+                <td>{h.batch}<div className="muted" style={{ fontSize: 12 }}>Cycle {h.number}</div></td>
+                <td><ScoreBar score={h.score} /></td>
+                {PARTS.map(([k]) => <td key={k}><PartCell k={k} it={h.items?.[k]} /></td>)}
+              </tr>))}</tbody>
+          </table>
+        </div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Highlighted row = the cycle shown on the page. Plans made by the admin are shown but not counted either way.</p>
+      </div>
+    </div>
+  )
+}
+
 export default function PerformancePage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'superadmin'
   const [data, setData] = useState(null)
   const [period, setPeriod] = useState(null)
   const [open, setOpen] = useState(null)
+  const [trainer, setTrainer] = useState(null)   // pop-up
   const [err, setErr] = useState('')
   const [roundDeadline, setRoundDeadline] = useState('')
 
@@ -269,7 +330,7 @@ export default function PerformancePage() {
           <p data-tour="perf-summary" style={{ fontSize: 15, marginBottom: 14 }}>
             <b style={{ color: 'var(--tick)' }}>{count('on-time') + count('excused')} on time</b> ·{' '}
             <b style={{ color: 'var(--red-ink)' }}>{count('late')} late</b> ·{' '}
-            <b style={{ color: 'var(--pencil)' }}>{count('admin')} done by admin</b> ·{' '}
+            <b style={{ color: 'var(--red-ink)' }}>{count('admin')} done by admin</b> ·{' '}
             <b style={{ color: 'var(--red-ink)' }}>{count('missing')} not done</b>
             {count('pending') ? <> · <span className="muted">{count('pending')} not due yet</span></> : ''}
             <span className="muted"> — out of {rows.length} batch{rows.length === 1 ? '' : 'es'}</span>
@@ -283,8 +344,10 @@ export default function PerformancePage() {
             <tbody>
               {data.trainers.length === 0 ? <tr><td colSpan={5} className="muted">No tracked cycles with scores yet.</td></tr> :
                 data.trainers.map(t => (
-                  <tr key={t.id} style={String(t.id) === String(user?.id || user?._id) ? { background: 'var(--blue-wash)' } : undefined}>
-                    <td><b>{t.name}</b></td>
+                  <tr key={t.id} onClick={() => setTrainer(t)} title="Click for the full picture" style={{ cursor: 'pointer', ...(String(t.id) === String(user?.id || user?._id) ? { background: 'var(--blue-wash)' } : {}) }}>
+                    <td><b style={{ color: 'var(--blue-ink)', textDecoration: 'underline', textUnderlineOffset: 3 }}>{t.name}</b>
+                      {(t.signs?.adminDone + t.signs?.logsByAdmin) > 0 && <span className="tag tag--red" style={{ marginLeft: 8 }}>{t.signs.adminDone + t.signs.logsByAdmin} by admin</span>}
+                      {(t.signs?.missing + t.signs?.logsMissing) > 0 && <span className="tag tag--red" style={{ marginLeft: 6 }}>{t.signs.missing + t.signs.logsMissing} missing</span>}</td>
                     <td className="muted">{t.batches.join(', ') || '—'}</td>
                     <td><ScoreBar score={t.thisCycle} /></td>
                     <td><ScoreBar score={t.semesterAvg} /></td>
@@ -328,6 +391,7 @@ export default function PerformancePage() {
           </table>
         </div>
       </>)}
+      {trainer && <TrainerModal t={trainer} onClose={() => setTrainer(null)} />}
     </div>
   )
 }

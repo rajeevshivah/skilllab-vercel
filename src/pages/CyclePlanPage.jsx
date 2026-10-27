@@ -4,8 +4,10 @@ import api from '../api'
 import { useAuth } from '../context/AuthContext'
 import { ui, Alert } from '../components/ui'
 import PageHelp from '../components/PageHelp'
+import { useOrg } from '../context/OrgContext'
 
 export default function CyclePlanPage() {
+  const { brand } = useOrg()
   const { id } = useParams()
   const { user } = useAuth()
   const [cycle, setCycle] = useState(null)
@@ -99,7 +101,7 @@ export default function CyclePlanPage() {
       <div class="sub">${cycle.startDate?new Date(cycle.startDate).toLocaleDateString('en-GB'):''} to ${cycle.endDate?new Date(cycle.endDate).toLocaleDateString('en-GB'):''}${cycle.batch?.track?` · ${cycle.batch.track}`:''}</div>
       <table><thead><tr><th>#</th><th>Topic</th><th>What we'll cover</th><th>Date &amp; time</th><th>Trainer</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#999">No classes planned</td></tr>'}</tbody></table>
-      <div class="foot">SHEAT College Skill Lab · shared with students</div>
+      <div class="foot">${brand} · shared with students</div>
       </body></html>`
     const w = window.open('', '_blank')
     if (!w) { show('Allow pop-ups to export', 'error'); return }

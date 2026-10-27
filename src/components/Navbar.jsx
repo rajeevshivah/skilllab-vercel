@@ -2,10 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import GlobalSearch from './GlobalSearch'
+import { useOrg } from '../context/OrgContext'
 
-const ADMIN_PATHS = ['/semesters', '/users', '/duplicates']
+const ADMIN_PATHS = ['/semesters', '/users', '/duplicates', '/planner', '/settings', '/platform']
+const ROLE_NAME = { superadmin: 'Admin', trainer: 'Trainer', cotrainer: 'Co-trainer', viewer: 'Management (read-only)' }
 
 export default function Navbar() {
+  const { brand, has } = useOrg()
   const { user, logout } = useAuth()
   const loc = useLocation()
   const nav = useNavigate()
@@ -45,9 +48,9 @@ export default function Navbar() {
       <Link to="/cycles" className={is('/cycles') || loc.pathname.startsWith('/cycle/') ? 'is-active' : ''}>Cycles</Link>
       <Link to="/plans" className={is('/plans') ? 'is-active' : ''}>Class plans</Link>
       <Link to="/meeting" className={is('/meeting') ? 'is-active' : ''}>Meetings</Link>
-      <Link to="/placement" className={is('/placement') ? 'is-active' : ''}>Placement</Link>
+      <Link to="/top-students" className={is('/top-students') ? 'is-active' : ''}>Top students</Link>
       <Link to="/performance" className={is('/performance') ? 'is-active' : ''}>Performance</Link>
-      {user?.role === 'superadmin' && (
+      {(user?.role === 'superadmin' || user?.platformOwner) && (
         <div className="dropdown" ref={adminRef} style={{ display: 'inline-block' }}>
           <button
             type="button"
@@ -64,6 +67,7 @@ export default function Navbar() {
               <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Duplicates</Link>
               <Link to="/planner" className={is('/planner') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Plan new cycles</Link>
               <Link to="/settings" className={is('/settings') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Settings (holidays, timetables)</Link>
+              {user?.platformOwner && <><div className="dropdown-sep" /><Link to="/platform" className={is('/platform') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Colleges (owner console)</Link></>}
             </div>
           )}
         </div>
@@ -74,7 +78,7 @@ export default function Navbar() {
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <Link to="/dashboard" className="nav-mark">SHEAT Skill Lab</Link>
+        <Link to="/dashboard" className="nav-mark">{brand}</Link>
 
         <div className="nav-tabs">{tabs}</div>
 
@@ -93,10 +97,10 @@ export default function Navbar() {
               </button>
               {accountOpen && (
                 <div className="dropdown-panel">
-                  <div className="dropdown-label" style={{ textTransform: 'capitalize' }}>{user.role}</div>
+                  <div className="dropdown-label">{ROLE_NAME[user.role] || user.role}</div>
                   <div className="dropdown-sep" />
-                  <Link to="/" className={is('/') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Hall of Fame (public page)</Link>
-                  <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Connect AI</Link>
+                  {has('hallOfFame') && <Link to="/" className={is('/') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Hall of Fame (public page)</Link>}
+                  {has('ai') && <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Connect AI</Link>}
                   <button onClick={handleLogout}>Log out</button>
                 </div>
               )}
@@ -107,11 +111,16 @@ export default function Navbar() {
         </div>
       </div>
 
+      {user?.role === 'viewer' && (
+        <div style={{ background: 'var(--pencil-wash)', color: 'var(--pencil)', fontSize: 12.5, textAlign: 'center', padding: '4px 12px' }}>
+          Management view — you can see everything here; changes are made by the admin and trainers.
+        </div>
+      )}
       {mobileOpen && (
         <div className="nav-mobile-panel">
           {tabs}
-          <Link to="/" className={is('/') ? 'is-active' : ''}>Hall of Fame</Link>
-          {user && <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''}>Connect AI</Link>}
+          {has('hallOfFame') && <Link to="/" className={is('/') ? 'is-active' : ''}>Hall of Fame</Link>}
+          {user && has('ai') && <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''}>Connect AI</Link>}
           {user?.role === 'superadmin' && (
             <>
               <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''}>Semesters</Link>
@@ -119,6 +128,7 @@ export default function Navbar() {
               <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''}>Duplicates</Link>
               <Link to="/planner" className={is('/planner') ? 'is-active' : ''}>Plan new cycles</Link>
               <Link to="/settings" className={is('/settings') ? 'is-active' : ''}>Settings</Link>
+              {user?.platformOwner && <Link to="/platform" className={is('/platform') ? 'is-active' : ''}>Colleges</Link>}
             </>
           )}
         </div>

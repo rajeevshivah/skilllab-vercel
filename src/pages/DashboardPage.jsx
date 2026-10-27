@@ -67,7 +67,7 @@ export default function DashboardPage() {
       <div style={{ marginBottom: 22 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <h1 className="page-title">Today, {fmtToday()}</h1>
-          <span data-tour="dash-help"><PageHelp page="dashboard" role={user?.role} /></span>
+          <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Link to="/meeting" className="btn btn--secondary btn--sm">Class health →</Link><span data-tour="dash-help"><PageHelp page="dashboard" role={user?.role} /></span></span>
         </div>
         <p className="muted" style={{ fontSize: 14, marginTop: 2 }}>{semName ? semName : 'No active semester yet'}</p>
       </div>

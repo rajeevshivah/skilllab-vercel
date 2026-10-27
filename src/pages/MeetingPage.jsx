@@ -8,6 +8,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
 import { FeedbackPanel } from './FeedbackPage'
+import ClassHealth from './ClassHealth'
 
 const IST = { timeZone: 'Asia/Kolkata' }
 const fmtDay = (s) => s ? new Date(s + 'T12:00:00+05:30').toLocaleDateString('en-IN', { ...IST, weekday: 'short', day: 'numeric', month: 'short' }) : '—'
@@ -192,19 +193,21 @@ export default function MeetingPage() {
   const me = String(user?.id || user?._id || '')
   const isAdminUser = user?.role === 'superadmin'
   const [sp, setSp] = useSearchParams()
-  const tab = ['review', 'feedback'].includes(sp.get('tab')) ? sp.get('tab') : 'day'
+  const tab = ['day', 'review', 'feedback'].includes(sp.get('tab')) ? sp.get('tab') : 'health'
   const [msg, setMsg] = useState(null)
   const flash = (t, ok = true) => { setMsg({ t, ok }); setTimeout(() => setMsg(null), 4000) }
   return (
     <div className="page">
-      <h1 className="page-title">Meetings</h1>
-      <p className="muted" style={{ marginTop: 4 }}>Run the daily review after classes and the review at the end of each cycle from here. Notes stay with the batch / trainer and everyone concerned can see them.</p>
+      <h1 className="page-title">Meetings &amp; class health</h1>
+      <p className="muted" style={{ marginTop: 4 }}>How every class went, for a day, a week or a whole cycle — and the two regular meetings, with notes that stay with the batch / trainer.</p>
       <div className="tabs" style={{ margin: '16px 0 16px' }}>
-        <button className={tab === 'day' ? 'is-active' : ''} onClick={() => setSp({})}>Daily review</button>
+        <button className={tab === 'health' ? 'is-active' : ''} onClick={() => setSp({})}>Class health</button>
+        <button className={tab === 'day' ? 'is-active' : ''} onClick={() => setSp({ tab: 'day' })}>Daily review</button>
         <button className={tab === 'review' ? 'is-active' : ''} onClick={() => setSp({ tab: 'review' })}>Cycle review</button>
         <button className={tab === 'feedback' ? 'is-active' : ''} onClick={() => setSp({ tab: 'feedback' })}>Student feedback</button>
       </div>
       {msg && <div className={`banner ${msg.ok ? 'banner--success' : 'banner--error'}`}>{msg.t}</div>}
+      {tab === 'health' && <ClassHealth isAdmin={isAdminUser} />}
       {tab === 'day' && <DayTab me={me} isAdminUser={isAdminUser} flash={flash} />}
       {tab === 'review' && <ReviewTab me={me} isAdminUser={isAdminUser} flash={flash} />}
       {tab === 'feedback' && <FeedbackPanel />}

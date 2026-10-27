@@ -17,7 +17,7 @@ export default function BatchesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
 
-  const blank = { name:'', composition:'', track:'', trainers:[], copyPlanFrom:'' }
+  const blank = { name:'', composition:'', track:'', trainers:[] }
   const [form, setForm] = useState(blank)
 
   const show = (msg, type='success') => { setAlert({ msg, type }); setTimeout(()=>setAlert(null), 3500) }
@@ -42,7 +42,7 @@ export default function BatchesPage() {
   function openCreate() { setEditing(null); setForm(blank); setShowForm(true) }
   function openEdit(b) {
     setEditing(b._id)
-    setForm({ name:b.name, composition:b.composition||'', track:b.track||'', trainers:(b.trainers||[]).map(t=>t._id), copyPlanFrom:'' })
+    setForm({ name:b.name, composition:b.composition||'', track:b.track||'', trainers:(b.trainers||[]).map(t=>t._id) })
     setShowForm(true)
   }
 
@@ -113,15 +113,6 @@ export default function BatchesPage() {
             </div>
           </div>
 
-          {!editing && (
-            <div style={{ marginTop:16, maxWidth:360 }}>
-              <label style={ui.label}>Copy plan from (optional)</label>
-              <select style={ui.input} value={form.copyPlanFrom} onChange={e=>setForm({...form,copyPlanFrom:e.target.value})}>
-                <option value="">— start with empty plan —</option>
-                {batches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-              </select>
-            </div>
-          )}
 
           <div style={{ display:'flex', gap:10, marginTop:18 }}>
             <button style={ui.btn} onClick={save}>{editing?'Save changes':'Create batch'}</button>
