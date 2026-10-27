@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -287,6 +287,8 @@ function StudentsTab({ batchId, user, show, canEdit }) {
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState(blankAdd)
   const [savingEdit, setSavingEdit] = useState(false)
+  const [tempIds, setTempIds] = useState([])          // temporary IDs just made — stays on screen to hand out
+  const [merging, setMerging] = useState(false)
 
   const TEMPLATE_HEADER = 'Roll, Name, Course, Semester, Section'
   const TEMPLATE_SAMPLE = 'Roll, Name, Course, Semester, Section\nBCA2024001, Aman Kumar, BCA, 3rd, A\nBCA2024002, Priya Singh, BCA, 3rd, A'
@@ -342,6 +344,7 @@ function StudentsTab({ batchId, user, show, canEdit }) {
       const bits = [`Imported ${data.imported}`]
       if (data.skippedCount) bits.push(`${data.skippedCount} skipped`)
       if (data.duplicateCount) bits.push(`${data.duplicateCount} also in another batch`)
+      if (data.temporaryIds?.length) { bits.push(`${data.temporaryIds.length} got a temporary ID`); setTempIds(data.temporaryIds) }
       show(`${bits.join(' · ')}.`)
       setPaste(''); setPreview(null); setShowImport(false); load()
     } catch (e) { show(e.response?.data?.message || 'Import failed', 'error') }
@@ -351,9 +354,28 @@ function StudentsTab({ batchId, user, show, canEdit }) {
   async function addOne() {
     if (!addForm.name.trim()) return show('Name required', 'error')
     try {
-      await api.post('/students', { ...addForm, batch: batchId })
+      const { data } = await api.post('/students', { ...addForm, batch: batchId })
+      if (data.student?.rollTemporary) setTempIds([{ name: data.student.name, roll: data.student.roll }])
       show(`Added ${addForm.name}.`); setAddForm(blankAdd); setShowAdd(false); load()
     } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
+
+  // same roll twice in this batch (a double import) → merge, so nothing is lost
+  const twins = useMemo(() => {
+    const by = new Map()
+    for (const s of students) if (s.roll) { const k = s.roll.trim().toLowerCase(); by.set(k, [...(by.get(k) || []), s]) }
+    return [...by.values()].filter(l => l.length > 1).map(list => ({ roll: list[0].roll, list }))
+  }, [students])
+  const canMerge = canEdit && user?.role !== 'cotrainer'
+  async function mergeTwins(g, keep) {
+    const others = g.list.filter(x => x._id !== keep._id)
+    if (!confirm(`Keep "${keep.name}" (${g.roll}) and merge ${others.map(o => `"${o.name}"`).join(', ')} into it?\n\nAttendance, marks and answers move to the kept record. This cannot be undone.`)) return
+    setMerging(true)
+    try {
+      for (const o of others) await api.post(`/students/${o._id}/merge`, { into: keep._id })
+      show(`Merged — ${keep.name} is now one record and can set up their sign-in.`); load()
+    } catch (e) { show(e.response?.data?.message || 'Merge failed', 'error'); load() }
+    finally { setMerging(false) }
   }
 
   function startEdit(s) {
@@ -423,16 +445,41 @@ function StudentsTab({ batchId, user, show, canEdit }) {
         </div>
       )}
 
+      {tempIds.length > 0 && (
+        <div className="banner banner--success">
+          <b>Temporary IDs to hand out</b> — each student signs up with this ID and the batch code (Student login tab):
+          <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>{tempIds.map(t => <li key={t.roll}>{t.name}: <b className="data">{t.roll}</b></li>)}</ul>
+          <button className="btn btn--quiet btn--sm" style={{ marginTop: 4, paddingLeft: 0 }} onClick={() => setTempIds([])}>Done</button>
+        </div>
+      )}
+
+      {twins.length > 0 && (
+        <div className="banner banner--pencil">
+          <b>{twins.length === 1 ? 'One roll number is' : `${twins.length} roll numbers are`} in this batch twice</b> — those students cannot set up their sign-in until the two records are merged. Keep the record with the right name; the other one's attendance, marks and answers move into it.
+          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+            {twins.map(g => (
+              <div key={g.roll} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="data" style={{ minWidth: 120 }}>{g.roll}</span>
+                {canMerge ? g.list.map(k => (
+                  <button key={k._id} className="btn btn--secondary btn--sm" disabled={merging} onClick={() => mergeTwins(g, k)}>Keep "{k.name}"</button>
+                )) : <span>{g.list.map(k => k.name).join(' / ')} — ask a trainer of this batch to merge</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {showAdd && canEdit && (
         <div className="sheet" style={{ padding: 20, marginBottom: 18 }}>
           <h2 className="section-title" style={{ marginBottom: 12 }}>Add one student</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10 }}>
-            <div className="field"><label>Roll</label><input className="ctl" value={addForm.roll} onChange={e => setAddForm({ ...addForm, roll: e.target.value })} /></div>
+            <div className="field"><label>Roll</label><input className="ctl" value={addForm.roll} onChange={e => setAddForm({ ...addForm, roll: e.target.value })} placeholder="empty = temporary ID" /></div>
             <div className="field"><label>Name *</label><input className="ctl" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} /></div>
             <div className="field"><label>Course</label><input className="ctl" value={addForm.course} onChange={e => setAddForm({ ...addForm, course: e.target.value })} placeholder="BCA" /></div>
             <div className="field"><label>Semester</label><input className="ctl" value={addForm.sem} onChange={e => setAddForm({ ...addForm, sem: e.target.value })} placeholder="3rd" /></div>
             <div className="field"><label>Section</label><input className="ctl" value={addForm.section} onChange={e => setAddForm({ ...addForm, section: e.target.value })} placeholder="A" /></div>
           </div>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>No roll number yet (lateral entry, late admission)? Leave Roll empty: a temporary ID (TMP-…) is made for them to sign in with. Type the real roll over it later; their sign-in keeps working.</p>
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
             <button className="btn btn--primary" onClick={addOne}>Add student</button>
             <button className="btn btn--secondary" onClick={() => setShowAdd(false)}>Cancel</button>
@@ -446,7 +493,7 @@ function StudentsTab({ batchId, user, show, canEdit }) {
           <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
             One student per line, in this column order: <b style={{ color: 'var(--ink)' }}>Roll, Name, Course, Semester, Section</b>.
             Commas or tabs both work, so you can paste straight from Excel. A header row is auto-skipped.
-            Only Roll and Name are required.
+            Only Name is required — a row without a roll gets a temporary ID (lateral entries).
           </p>
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
             <button className="btn btn--secondary btn--sm" onClick={copyFormat}>Copy format</button>
@@ -530,9 +577,9 @@ function StudentsTab({ batchId, user, show, canEdit }) {
                       </tr>
                     ) : (
                       <tr key={s._id} className={s.attendancePct != null && s.attendancePct < 75 ? 'is-flagged' : ''}>
-                        <td data-label="Roll" className="data muted m-hide">{s.roll || '—'}</td>
+                        <td data-label="Roll" className="data muted m-hide">{s.roll || '—'}{s.rollTemporary && <div><span className="tag tag--pencil" title="Temporary ID — type the real roll over it when known">temporary</span></div>}</td>
                         <td data-label="Name" className="m-title" style={{ fontWeight: 600 }}>{s.name} {s.flagged && <span className="tag tag--pencil" style={{ marginLeft: 6 }}>Flagged</span>}
-                          <div className="only-mobile muted data" style={{ fontSize: 12, fontWeight: 400 }}>{[s.roll, s.course, s.sem && `sem ${s.sem}`, s.section && `sec ${s.section}`].filter(Boolean).join(' · ')}</div></td>
+                          <div className="only-mobile muted data" style={{ fontSize: 12, fontWeight: 400 }}>{[s.roll + (s.rollTemporary ? ' (temporary)' : ''), s.course, s.sem && `sem ${s.sem}`, s.section && `sec ${s.section}`].filter(Boolean).join(' · ')}</div></td>
                         <td data-label="Course" className="muted m-hide">{s.course || '—'}</td>
                         <td data-label="Sem" className="muted m-hide">{s.sem || '—'}</td>
                         <td data-label="Sec" className="muted m-hide">{s.section || '—'}</td>
