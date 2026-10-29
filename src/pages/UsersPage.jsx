@@ -47,6 +47,22 @@ export default function UsersPage() {
     try { await api.patch(`/auth/users/${u._id}`, { password }); setNewPw({ name: u.name, email: u.email, password }) }
     catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
   }
+  // end every sign-in of one person (password unchanged)
+  async function signOut(u) {
+    if (!confirm(`Sign ${u.name} out on every device? Their password does not change.`)) return
+    try { const { data } = await api.post(`/auth/users/${u._id}/sign-out`); show(data.message) }
+    catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
+  // everyone of this college signs in again; you stay signed in
+  const [allOpen, setAllOpen] = useState(false)
+  const [allWho, setAllWho] = useState({ staff: true, students: false })
+  async function signOutAll() {
+    try {
+      const { data } = await api.post('/auth/sign-out-all', allWho)
+      show(`Signed out ${data.staff} staff login(s) and ${data.students} student(s).${data.skipped.length ? ` Not touched: ${data.skipped.join(', ')}.` : ''}`)
+      setAllOpen(false)
+    } catch (e) { show(e.response?.data?.message || 'Failed', 'error') }
+  }
   async function remove(u) {
     if (!confirm(u.otherColleges ? `Remove ${u.name} from this college? (They keep their login for their other college.)` : `Delete ${u.name}?`)) return
     try { await api.delete(`/auth/users/${u._id}`); show('Deleted.'); load() }
@@ -60,13 +76,31 @@ export default function UsersPage() {
     <div style={ui.wrap}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:14, flexWrap:'wrap', gap:10 }}>
         <div><h1 style={ui.h1}>Trainers & Users</h1><p style={ui.sub}>Assign them to batches from the Batches page. Management (read-only) sees every screen and cannot change anything.</p></div>
-        <button style={ui.btnGold} onClick={()=>setShowForm(v=>!v)}>+ New user</button>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          <button style={ui.btnGhost} onClick={()=>setAllOpen(v=>!v)}>Sign out everyone…</button>
+          <button style={ui.btnGold} onClick={()=>setShowForm(v=>!v)}>+ New user</button>
+        </div>
       </div>
       <Alert alert={alert} />
       {newPw && (
         <div style={{ ...ui.card, marginBottom: 16, borderColor: 'rgba(245,158,11,0.5)' }}>
           New password for <b>{newPw.name}</b> ({newPw.email}): <code style={{ fontSize: 16 }}>{newPw.password}</code> — shown only now. Share it privately.
           <button style={{ ...ui.btnGhost, marginLeft: 10 }} onClick={() => setNewPw(null)}>Done</button>
+        </div>
+      )}
+
+      {allOpen && (
+        <div style={{ ...ui.card, marginBottom:18 }}>
+          <h2 style={ui.h2}>Sign out everyone</h2>
+          <p style={ui.sub}>Use this if a password was shared or leaked. Everyone chosen must sign in again; passwords do not change. You stay signed in here. AI connections keep working.</p>
+          <div style={{ display:'flex', gap:18, flexWrap:'wrap', margin:'10px 0 14px' }}>
+            <label style={{ display:'flex', gap:6, alignItems:'center' }}><input type="checkbox" checked={allWho.staff} onChange={e=>setAllWho({ ...allWho, staff:e.target.checked })} /> All staff (trainers, admins, management)</label>
+            <label style={{ display:'flex', gap:6, alignItems:'center' }}><input type="checkbox" checked={allWho.students} onChange={e=>setAllWho({ ...allWho, students:e.target.checked })} /> All students</label>
+          </div>
+          <div style={{ display:'flex', gap:10 }}>
+            <button style={ui.btnDanger} disabled={!allWho.staff && !allWho.students} onClick={signOutAll}>Sign them out</button>
+            <button style={ui.btnGhost} onClick={()=>setAllOpen(false)}>Cancel</button>
+          </div>
         </div>
       )}
 
@@ -110,6 +144,7 @@ export default function UsersPage() {
                       </td>
                       <td style={{ ...ui.td, whiteSpace:'nowrap' }}>{u._id!==me && <>
                         {!u.otherColleges && <button style={{ ...ui.btnGhost, marginRight: 6 }} onClick={()=>resetPw(u)}>Reset password</button>}
+                        <button style={{ ...ui.btnGhost, marginRight: 6 }} onClick={()=>signOut(u)}>Sign out</button>
                         <button style={ui.btnDanger} onClick={()=>remove(u)}>{u.otherColleges ? 'Remove' : 'Delete'}</button></>}</td>
                     </tr>
                   ))}

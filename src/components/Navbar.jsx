@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import GlobalSearch from './GlobalSearch'
 import ChangePassword from './ChangePassword'
 import { useOrg } from '../context/OrgContext'
+import api from '../api'
 
 const ADMIN_PATHS = ['/semesters', '/users', '/duplicates', '/planner', '/settings', '/platform']
 const ROLE_NAME = { superadmin: 'Admin', trainer: 'Trainer', cotrainer: 'Co-trainer', viewer: 'Management (read-only)' }
@@ -23,6 +24,13 @@ export default function Navbar() {
   const is = (p) => loc.pathname === p
   const isAdminSection = ADMIN_PATHS.includes(loc.pathname)
   const handleLogout = () => { logout(); setAccountOpen(false); nav('/') }
+  // every other device signed in as me is signed out; this one gets a fresh token
+  const signOutOthers = async () => {
+    setAccountOpen(false)
+    if (!window.confirm('Sign out on every other phone and computer? You stay signed in here. Your password does not change.')) return
+    try { const { data } = await api.put('/auth/sign-out-others'); localStorage.setItem('sl_token', data.token); window.alert('Done — every other device is signed out.') }
+    catch (e) { window.alert(e.response?.data?.message || 'Could not sign out the other devices.') }
+  }
 
   useEffect(() => {
     function onClick(e) {
@@ -104,6 +112,7 @@ export default function Navbar() {
                   {has('hallOfFame') && <Link to="/" className={is('/') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Hall of Fame (public page)</Link>}
                   {has('ai') && <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Connect AI</Link>}
                   <button onClick={() => { setAccountOpen(false); setPwOpen(true) }}>Change password</button>
+                  <button onClick={signOutOthers}>Sign out other devices</button>
                   <button onClick={handleLogout}>Log out</button>
                 </div>
               )}
