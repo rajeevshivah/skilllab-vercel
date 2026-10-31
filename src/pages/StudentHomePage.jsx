@@ -390,6 +390,18 @@ function Progress({ me }) {
 
 const TRAINING_TABS = [['today', 'Today'], ['plan', 'Plan'], ['progress', 'Progress']]
 
+// An older server sends only the training part (no person / places / modules):
+// fill the frame from it, so the page never breaks while the two are deployed one after the other.
+function withFrame(d) {
+  if (!d.person && d.student) d.person = { id: d.student.id, name: d.student.name, roll: d.student.roll, photo: d.student.photo || null }
+  if (!d.places) d.places = []
+  if (d.place === undefined) d.place = d.student ? String(d.student.id) : null
+  if (!d.modules) d.modules = { training: true }
+  if (d.demo === undefined) d.demo = !!d.student?.demo
+  if (!d.person) d.person = { name: 'Student', roll: '' }
+  return d
+}
+
 // "Your profile is 60% complete" on the Today tab, until it is complete. Never blocks anything.
 function ProfileNudge({ c, onOpen }) {
   return (
@@ -419,7 +431,7 @@ export default function StudentHomePage() {
   const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('sl_st_tab') || 'today' } catch { return 'today' } })
   const go = (t) => { setTab(t); try { sessionStorage.setItem('sl_st_tab', t) } catch {} window.scrollTo({ top: 0 }) }
   async function load() {
-    try { const { data } = await studentApi.get('/student/me'); setMe(data); setErr(null) }
+    try { const { data } = await studentApi.get('/student/me'); setMe(withFrame(data)); setErr(null) }
     catch (e) { setErr(e.response?.data?.message || 'Could not load') }
   }
   useEffect(() => { if (studentSignedIn()) load() }, [])
