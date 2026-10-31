@@ -17,10 +17,9 @@ export default function LoginPage() {
     e.preventDefault()
     setError(''); setLoading(true)
     try {
-      await login(email, password)
-      // Bug fix: this used to send trainers to /admin, which doesn't exist —
-      // the catch-all route then bounced them straight back to the public page.
-      navigate('/dashboard')
+      const u = await login(email, password)
+      // the placement officer has only the placement section
+      navigate(u?.role === 'placement' ? '/placement' : '/dashboard')
     } catch (err) {
       setError(err.response?.data?.message || `That email and password don't match. Check for typos, or ask the ${program} coordinator to reset your password.`)
     } finally { setLoading(false) }

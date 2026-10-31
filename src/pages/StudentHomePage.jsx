@@ -5,7 +5,7 @@
 // Phone-first tabs: Today · Plan · Progress · Profile (only Profile when the
 // student is in no training batch). More module tabs come with those modules.
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, Link } from 'react-router-dom'
+import { Navigate, Link, useNavigate } from 'react-router-dom'
 import studentApi, { studentSignedIn, studentSignOut, setStudentPlace } from '../api/student'
 import StudentProfileCard, { CompletionBar } from '../components/StudentProfileCard'
 import { resizeImage, shrinkScreenshot } from '../utils/image'
@@ -390,6 +390,32 @@ function Progress({ me }) {
 
 const TRAINING_TABS = [['today', 'Today'], ['plan', 'Plan'], ['progress', 'Progress']]
 
+// Placement: drives this student can see — apply, or why not.
+const ELIG = { eligible: ['You can apply', 'var(--tick)'], notEligible: ['Not eligible', 'var(--red-ink)'], incomplete: ['Complete your profile', 'var(--pencil)'], needsVerification: ['Waiting for verification', 'var(--pencil)'] }
+function PlacementTab({ onCount }) {
+  const nav = useNavigate()
+  const [list, setList] = useState(null), [err, setErr] = useState(null)
+  useEffect(() => { studentApi.get('/student/placement/drives').then(r => { setList(r.data.drives); onCount?.(r.data.openForMe) }).catch(e => setErr(e.response?.data?.message || 'Could not load drives')) }, [])
+  if (err) return <div className="banner banner--error" style={{ margin: 0 }}>{err}</div>
+  if (!list) return <p className="muted">Loading drives…</p>
+  if (!list.length) return <Card><p className="muted" style={{ margin: 0 }}>No drives for you right now. When your placement office opens one for your batch, it shows here.</p></Card>
+  return list.map(d => {
+    const [label, color] = d.application?.status === 'applied' ? ['Applied ✓', 'var(--tick)'] : !d.open ? ['Closed', 'var(--ink-soft)'] : ELIG[d.eligibility.state] || ['', 'var(--ink-soft)']
+    return (
+      <button key={d.slug} type="button" className="sheet" onClick={() => nav(`/student/drive/${d.slug}`)}
+        style={{ padding: 16, textAlign: 'left', border: 'none', cursor: 'pointer', borderLeft: `4px solid ${color}`, display: 'grid', gap: 4, width: '100%', font: 'inherit', color: 'inherit' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+          <span className="muted" style={{ fontSize: 13 }}>{d.company}</span>
+          {d.isNew && <span className="tag tag--blue" style={{ fontSize: 11 }}>New</span>}
+        </div>
+        <div style={{ fontWeight: 700, fontSize: 16 }}>{d.title}</div>
+        <div className="muted" style={{ fontSize: 13 }}>{[d.ctc, d.location, `apply by ${fmtDay(new Date(d.applyBy).toLocaleDateString('en-CA', IST))}`].filter(Boolean).join(' · ')}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color }}>{label}{d.open && !d.application && d.eligibility.state === 'notEligible' ? ` — ${d.eligibility.reasons[0]}` : ''}</div>
+      </button>
+    )
+  })
+}
+
 // An older server sends only the training part (no person / places / modules):
 // fill the frame from it, so the page never breaks while the two are deployed one after the other.
 function withFrame(d) {
@@ -427,7 +453,7 @@ function PlaceSwitcher({ me, onPick }) {
 
 export default function StudentHomePage() {
   const { brand } = useOrg()
-  const [me, setMe] = useState(null), [err, setErr] = useState(null)
+  const [me, setMe] = useState(null), [err, setErr] = useState(null), [openDrives, setOpenDrives] = useState(0)
   const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('sl_st_tab') || 'today' } catch { return 'today' } })
   const go = (t) => { setTab(t); try { sessionStorage.setItem('sl_st_tab', t) } catch {} window.scrollTo({ top: 0 }) }
   async function load() {
@@ -435,6 +461,7 @@ export default function StudentHomePage() {
     catch (e) { setErr(e.response?.data?.message || 'Could not load') }
   }
   useEffect(() => { if (studentSignedIn()) load() }, [])
+  useEffect(() => { if (me?.modules?.placement) studentApi.get('/student/placement/drives').then(r => setOpenDrives(r.data.openForMe)).catch(() => {}) }, [me?.modules?.placement])
   async function pickPlace(id) { setStudentPlace(id); setMe(null); await load() }
   if (!studentSignedIn()) return <Navigate to="/student/login" replace />
   if (err && !me) return <div className="page"><div className="banner banner--error">{err}</div></div>
@@ -442,7 +469,7 @@ export default function StudentHomePage() {
 
   // training tabs only for a student in a batch (and a college with training)
   const training = me.modules?.training !== false && !!me.place && !!me.batch
-  const tabs = [...(training ? TRAINING_TABS : []), ['profile', 'Profile']]
+  const tabs = [...(training ? TRAINING_TABS : []), ...(me.modules?.placement ? [['placement', 'Placement']] : []), ['profile', 'Profile']]
   const shown = tabs.some(([k]) => k === tab) ? tab : tabs[0][0]
   const classes = (me.cycle?.classes || []).filter(c => !c.holiday)
   const done = classes.filter(c => c.when === 'past').length
@@ -481,6 +508,7 @@ export default function StudentHomePage() {
                 style={{ flex: 1, background: 'none', border: 'none', padding: '12px 4px 10px', fontSize: 14, fontWeight: shown === k ? 700 : 500, cursor: 'pointer',
                   color: shown === k ? 'var(--blue-ink)' : 'var(--ink-soft)', borderBottom: `3px solid ${shown === k ? 'var(--blue-ink)' : 'transparent'}`, position: 'relative' }}>
                 {l}{k === 'today' && todo > 0 && <span style={{ marginLeft: 6, background: 'var(--red-ink)', color: '#fff', borderRadius: 9, fontSize: 11, padding: '1px 6px' }}>{todo}</span>}
+                {k === 'placement' && openDrives > 0 && <span style={{ marginLeft: 6, background: 'var(--tick)', color: '#fff', borderRadius: 9, fontSize: 11, padding: '1px 6px' }}>{openDrives}</span>}
               </button>
             ))}
           </div>
@@ -513,6 +541,7 @@ export default function StudentHomePage() {
         </>}
         {shown === 'plan' && (me.cycle ? <PlanList cycle={me.cycle} trainers={me.batch.trainers} /> : <Card><p className="muted" style={{ margin: 0 }}>No cycle planned yet.</p></Card>)}
         {shown === 'progress' && <Progress me={me} />}
+        {shown === 'placement' && <PlacementTab onCount={setOpenDrives} />}
         {shown === 'profile' && <>
           <PhotoCard me={me} onDone={load} />
           <StudentProfileCard onSaved={load} />

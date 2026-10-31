@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import studentApi from '../api/student'
 import { useOrg } from '../context/OrgContext'
 
@@ -13,6 +13,9 @@ export default function StudentLoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  // back to where they came from (a shared drive link) — only pages of the student app
+  const [params] = useSearchParams()
+  const next = /^\/student\/[\w\-/?=&]*$/.test(params.get('next') || '') ? params.get('next') : '/student'
 
   async function submit(e) {
     e.preventDefault(); setError('')
@@ -24,7 +27,7 @@ export default function StudentLoginPage() {
         : await studentApi.post('/student/activate', { roll, code, password })
       localStorage.setItem('sl_student_token', data.token)
       localStorage.removeItem('sl_student_place')   // a new sign-in starts on their current batch
-      navigate('/student')
+      navigate(next)
     } catch (err) { setError(err.response?.data?.message || 'Something went wrong. Try again.') }
     finally { setLoading(false) }
   }

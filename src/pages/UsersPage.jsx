@@ -3,7 +3,7 @@ import api from '../api'
 import { useAuth } from '../context/AuthContext'
 import { ui, Alert, Empty } from '../components/ui'
 
-const ROLES = [['trainer', 'Trainer'], ['cotrainer', 'Co-trainer'], ['viewer', 'Management (read-only)'], ['superadmin', 'Admin']]
+const ROLES = [['trainer', 'Trainer'], ['cotrainer', 'Co-trainer'], ['placement', 'Placement officer'], ['viewer', 'Management (read-only)'], ['superadmin', 'Admin']]
 const roleOptions = ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)
 
 export default function UsersPage() {

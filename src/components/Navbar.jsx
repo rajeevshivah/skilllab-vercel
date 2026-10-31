@@ -7,7 +7,7 @@ import { useOrg } from '../context/OrgContext'
 import api from '../api'
 
 const ADMIN_PATHS = ['/semesters', '/users', '/duplicates', '/planner', '/settings', '/platform']
-const ROLE_NAME = { superadmin: 'Admin', trainer: 'Trainer', cotrainer: 'Co-trainer', viewer: 'Management (read-only)' }
+const ROLE_NAME = { superadmin: 'Admin', trainer: 'Trainer', cotrainer: 'Co-trainer', viewer: 'Management (read-only)', placement: 'Placement officer' }
 
 export default function Navbar() {
   const { brand, has } = useOrg()
@@ -51,7 +51,11 @@ export default function Navbar() {
   // "View the Hall of Fame" link back out.
   if (is('/') || is('/login')) return null
 
-  const tabs = (
+  const onPlacement = loc.pathname.startsWith('/placement')
+  const placementTab = has('placement') && ['superadmin', 'viewer', 'placement'].includes(user?.role)
+    && <Link to="/placement" className={onPlacement ? 'is-active' : ''}>Placement</Link>
+  // the placement officer sees only placement
+  const tabs = user?.role === 'placement' ? <>{placementTab}</> : (
     <>
       <Link to="/dashboard" className={is('/dashboard') ? 'is-active' : ''}>Today</Link>
       <Link to="/batches" className={is('/batches') || loc.pathname.startsWith('/batch/') ? 'is-active' : ''}>Batches</Link>
@@ -60,6 +64,7 @@ export default function Navbar() {
       <Link to="/meeting" className={is('/meeting') ? 'is-active' : ''}>Meetings</Link>
       <Link to="/top-students" className={is('/top-students') ? 'is-active' : ''}>Top students</Link>
       <Link to="/performance" className={is('/performance') ? 'is-active' : ''}>Performance</Link>
+      {placementTab}
       {(user?.role === 'superadmin' || user?.platformOwner) && (
         <div className="dropdown" ref={adminRef} style={{ display: 'inline-block' }}>
           <button
@@ -88,7 +93,7 @@ export default function Navbar() {
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <Link to="/dashboard" className="nav-mark">{brand}</Link>
+        <Link to={user?.role === 'placement' ? '/placement' : '/dashboard'} className="nav-mark">{brand}</Link>
 
         <div className="nav-tabs">{tabs}</div>
 
@@ -97,7 +102,7 @@ export default function Navbar() {
         </button>
 
         <div className="nav-right">
-          {user && <GlobalSearch />}
+          {user && user.role !== 'placement' && <GlobalSearch />}
 
           {user ? (
             <div className="dropdown" ref={accountRef}>

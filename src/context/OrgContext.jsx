@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import api from '../api'
 
 const KEY = 'sl_org'
+const OFF_BY_DEFAULT = ['placement']
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null') } catch { return null } }
 const OrgCtx = createContext(null)
 
@@ -23,7 +24,8 @@ export function OrgProvider({ children }) {
     name: org?.name || '',                                   // "SHEAT College of Engineering"
     brand: org ? `${org.shortName} ${org.programName}` : 'Pramakra',   // "SHEAT Skill Lab"
     program: org?.programName || 'Skill Lab',
-    has: (m) => org?.modules?.[m] !== false,                 // unknown yet → show
+    // unknown yet → show; modules that start switched off (placement) show only when switched on
+    has: (m) => OFF_BY_DEFAULT.includes(m) ? org?.modules?.[m] === true : org?.modules?.[m] !== false,
     suspended: org?.status === 'suspended',
   }
   return <OrgCtx.Provider value={value}>{children}</OrgCtx.Provider>

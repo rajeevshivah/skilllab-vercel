@@ -3,8 +3,9 @@
 // profile is. The first save asks for consent (the college uses it for
 // training and placement). Mobile / email show "not verified" until a
 // one-time code confirms them (coming later).
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import studentApi from '../api/student'
+import { readAsDataUrl, fetchFile } from '../utils/files'
 
 export function CompletionBar({ c, compact }) {
   const tone = c.percent >= 100 ? 'var(--tick)' : c.percent >= 60 ? 'var(--blue-ink)' : 'var(--pencil)'
@@ -23,9 +24,33 @@ export function CompletionBar({ c, compact }) {
 }
 
 const Unverified = () => <span className="tag tag--muted" style={{ marginLeft: 6, fontSize: 11 }} title="We will confirm this with a one-time code later">not verified</span>
+const Verified = () => <span className="tag tag--tick" style={{ marginLeft: 6, fontSize: 11 }} title="Checked by your college">verified ✓</span>
+
+// a file field (marksheet …): upload a PDF / photo, then it is saved with the profile
+function FileInput({ value, onChange }) {
+  const pick = useRef(null)
+  const [busy, setBusy] = useState(false), [msg, setMsg] = useState('')
+  async function upload(e) {
+    const f = e.target.files?.[0]; e.target.value = ''
+    if (!f) return
+    setBusy(true); setMsg('')
+    try { const data = await readAsDataUrl(f); const r = await studentApi.post('/student/placement/documents', { kind: 'marksheet', name: f.name, data }); onChange(r.data.document.id); setMsg(`${f.name} — press Save`) }
+    catch (er) { setMsg(er.response?.data?.message || er.message) }
+    finally { setBusy(false) }
+  }
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 13 }}>
+      {value && !msg && <><span>📄 Uploaded</span><button type="button" className="btn btn--quiet btn--sm" onClick={() => fetchFile(studentApi, `/student/placement/documents/${value}`, { open: true })}>View</button></>}
+      <button type="button" className="btn btn--secondary btn--sm" disabled={busy} onClick={() => pick.current?.click()}>{busy ? 'Uploading…' : value ? 'Replace' : 'Upload (PDF / photo, max 2 MB)'}</button>
+      {msg && <span className="muted">{msg}</span>}
+      <input ref={pick} type="file" accept="application/pdf,image/jpeg,image/png" style={{ display: 'none' }} onChange={upload} />
+    </div>
+  )
+}
 
 function CustomInput({ f, value, onChange }) {
   const v = value ?? ''
+  if (f.type === 'file') return <FileInput value={value} onChange={onChange} />
   if (f.type === 'boolean') return (
     <div style={{ display: 'flex', gap: 6 }}>
       {[['Yes', true], ['No', false]].map(([l, b]) => <button key={l} type="button" className={`btn btn--sm ${value === b ? 'btn--primary' : 'btn--secondary'}`} onClick={() => onChange(b)}>{l}</button>)}
@@ -99,7 +124,7 @@ export default function StudentProfileCard({ onSaved }) {
             <div style={{ fontWeight: 700, fontSize: 14, borderTop: '1px solid var(--rule)', paddingTop: 12 }}>{g}</div>
             {p.fields.filter(f => (f.group || 'Other') === g).map(f => (
               <div key={f.key} className="field" style={{ margin: 0 }}>
-                <label>{f.label}{f.required ? ' *' : ''}{f.needsVerification && <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}> · checked by your college</span>}</label>
+                <label>{f.label}{f.required ? ' *' : ''}{p.verified?.[f.key] ? <Verified /> : f.needsVerification && <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}> · checked by your college</span>}</label>
                 <CustomInput f={f} value={form.custom[f.key]} onChange={v => setCustom(f.key, v)} />
                 {f.help && <span className="muted" style={{ fontSize: 12 }}>{f.help}</span>}
               </div>
