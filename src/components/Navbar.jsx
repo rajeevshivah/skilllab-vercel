@@ -6,7 +6,10 @@ import ChangePassword from './ChangePassword'
 import { useOrg } from '../context/OrgContext'
 import api from '../api'
 
-const ADMIN_PATHS = ['/semesters', '/users', '/duplicates', '/planner', '/settings', '/platform']
+// admin pages live in the account menu (not a tab), so the tab row has room
+// for every module a college switches on
+const ADMIN_LINKS = [['/semesters', 'Semesters'], ['/users', 'Users'], ['/duplicates', 'Duplicates'],
+  ['/planner', 'Plan new cycles'], ['/settings', 'Settings (holidays, timetables)']]
 const ROLE_NAME = { superadmin: 'Admin', trainer: 'Trainer', cotrainer: 'Co-trainer', viewer: 'Management (read-only)', placement: 'Placement officer' }
 
 export default function Navbar() {
@@ -14,15 +17,17 @@ export default function Navbar() {
   const { user, logout } = useAuth()
   const loc = useLocation()
   const nav = useNavigate()
-  const [adminOpen, setAdminOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
-  const adminRef = useRef(null)
   const accountRef = useRef(null)
 
   const is = (p) => loc.pathname === p
-  const isAdminSection = ADMIN_PATHS.includes(loc.pathname)
+  const isAdmin = user?.role === 'superadmin' || user?.platformOwner
+  const adminLinks = (close) => isAdmin && <>
+    {ADMIN_LINKS.map(([to, label]) => <Link key={to} to={to} className={is(to) ? 'is-active' : ''} onClick={close}>{label}</Link>)}
+    {user?.platformOwner && <Link to="/platform" className={is('/platform') ? 'is-active' : ''} onClick={close}>Colleges (owner console)</Link>}
+  </>
   const handleLogout = () => { logout(); setAccountOpen(false); nav('/') }
   // every other device signed in as me is signed out; this one gets a fresh token
   const signOutOthers = async () => {
@@ -34,7 +39,6 @@ export default function Navbar() {
 
   useEffect(() => {
     function onClick(e) {
-      if (adminRef.current && !adminRef.current.contains(e.target)) setAdminOpen(false)
       if (accountRef.current && !accountRef.current.contains(e.target)) setAccountOpen(false)
     }
     document.addEventListener('mousedown', onClick)
@@ -65,28 +69,6 @@ export default function Navbar() {
       <Link to="/top-students" className={is('/top-students') ? 'is-active' : ''}>Top students</Link>
       <Link to="/performance" className={is('/performance') ? 'is-active' : ''}>Performance</Link>
       {placementTab}
-      {(user?.role === 'superadmin' || user?.platformOwner) && (
-        <div className="dropdown" ref={adminRef} style={{ display: 'inline-block' }}>
-          <button
-            type="button"
-            className={`nav-tab${isAdminSection ? ' is-active' : ''}`}
-            onClick={() => setAdminOpen(v => !v)}
-            aria-haspopup="true" aria-expanded={adminOpen}
-          >
-            Admin ▾
-          </button>
-          {adminOpen && (
-            <div className="dropdown-panel align-left">
-              <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Semesters</Link>
-              <Link to="/users" className={is('/users') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Users</Link>
-              <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Duplicates</Link>
-              <Link to="/planner" className={is('/planner') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Plan new cycles</Link>
-              <Link to="/settings" className={is('/settings') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Settings (holidays, timetables)</Link>
-              {user?.platformOwner && <><div className="dropdown-sep" /><Link to="/platform" className={is('/platform') ? 'is-active' : ''} onClick={() => setAdminOpen(false)}>Colleges (owner console)</Link></>}
-            </div>
-          )}
-        </div>
-      )}
     </>
   )
 
@@ -114,6 +96,7 @@ export default function Navbar() {
                 <div className="dropdown-panel">
                   <div className="dropdown-label">{ROLE_NAME[user.role] || user.role}</div>
                   <div className="dropdown-sep" />
+                  {isAdmin && <>{adminLinks(() => setAccountOpen(false))}<div className="dropdown-sep" /></>}
                   {has('hallOfFame') && <Link to="/" className={is('/') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Hall of Fame (public page)</Link>}
                   {has('ai') && <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''} onClick={() => setAccountOpen(false)}>Connect AI</Link>}
                   <button onClick={() => { setAccountOpen(false); setPwOpen(true) }}>Change password</button>
@@ -139,16 +122,7 @@ export default function Navbar() {
           {tabs}
           {has('hallOfFame') && <Link to="/" className={is('/') ? 'is-active' : ''}>Hall of Fame</Link>}
           {user && has('ai') && <Link to="/connect-ai" className={is('/connect-ai') ? 'is-active' : ''}>Connect AI</Link>}
-          {user?.role === 'superadmin' && (
-            <>
-              <Link to="/semesters" className={is('/semesters') ? 'is-active' : ''}>Semesters</Link>
-              <Link to="/users" className={is('/users') ? 'is-active' : ''}>Users</Link>
-              <Link to="/duplicates" className={is('/duplicates') ? 'is-active' : ''}>Duplicates</Link>
-              <Link to="/planner" className={is('/planner') ? 'is-active' : ''}>Plan new cycles</Link>
-              <Link to="/settings" className={is('/settings') ? 'is-active' : ''}>Settings</Link>
-              {user?.platformOwner && <Link to="/platform" className={is('/platform') ? 'is-active' : ''}>Colleges</Link>}
-            </>
-          )}
+          {adminLinks()}
         </div>
       )}
     </nav>

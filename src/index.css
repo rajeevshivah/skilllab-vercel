@@ -257,9 +257,11 @@ input.ctl:focus-visible, select.ctl:focus-visible, textarea.ctl:focus-visible {
   display: flex; align-items: center; gap: 24px;
 }
 .nav-mark { font-size: 16px; font-weight: 700; color: var(--ink); white-space: nowrap; }
-.nav-tabs { display: flex; align-items: center; gap: 4px; height: 56px; flex: 1; min-width: 0; }
+.nav-tabs { display: flex; align-items: center; gap: 4px; height: 56px; flex: 1; min-width: 0;
+  overflow-x: auto; scrollbar-width: none; }   /* never slides under the search box; scrolls if a college has many modules */
+.nav-tabs::-webkit-scrollbar { display: none; }
 .nav-tabs a, .nav-tabs button.nav-tab {
-  display: flex; align-items: center; height: 56px; padding: 0 2px; margin-right: 18px;
+  display: flex; align-items: center; height: 56px; padding: 0 2px; margin-right: 16px; flex-shrink: 0;
   font-family: var(--font-ui); font-size: 14px; font-weight: 700; color: var(--ink-soft);
   border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none;
   cursor: pointer; white-space: nowrap; position: relative;
@@ -267,9 +269,10 @@ input.ctl:focus-visible, select.ctl:focus-visible, textarea.ctl:focus-visible {
 .nav-tabs a.is-active, .nav-tabs button.nav-tab.is-active { color: var(--ink); border-bottom-color: var(--blue-ink); }
 .nav-tabs a:hover, .nav-tabs button.nav-tab:hover { color: var(--ink); }
 .nav-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
-@media (max-width: 1240px) and (min-width: 1101px) {
-  .nav-tabs a, .nav-tabs button.nav-tab { margin-right: 11px; font-size: 13.5px; }
-  .nav-inner { gap: 16px; }
+@media (max-width: 1320px) and (min-width: 1101px) {
+  .nav-tabs a, .nav-tabs button.nav-tab { margin-right: 10px; font-size: 13.5px; }
+  .nav-inner { gap: 14px; }
+  .nav-search { width: 150px; }
 }
 .nav-menu-btn {
   display: none; background: none; border: 1px solid var(--rule-strong); border-radius: 6px;
@@ -298,7 +301,7 @@ input.ctl:focus-visible, select.ctl:focus-visible, textarea.ctl:focus-visible {
 }
 .account-trigger:hover { background: var(--page); }
 .account-name { font-size: 13.5px; font-weight: 700; color: var(--ink); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-search { width: 200px; }
+.nav-search { width: 180px; }
 .nav-search-panel { width: 320px; max-width: calc(100vw - 32px); }
 .account-chevron { color: var(--ink-soft); font-size: 10px; }
 
