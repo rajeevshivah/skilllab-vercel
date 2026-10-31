@@ -1,9 +1,13 @@
-// The student dashboard: profile (photo, GitHub), today's class question,
-// project submission, trainer feedback, this cycle's plan and their progress.
-// Phone-first, four tabs: Today · Plan · Progress · Profile.
+// The student dashboard — ONE sign-in for every module the college has.
+// Training (for the batch chosen in the switcher): today's class question,
+// project submission, trainer feedback, the cycle plan and their progress.
+// Profile (every student): photo, their details (with how complete), account.
+// Phone-first tabs: Today · Plan · Progress · Profile (only Profile when the
+// student is in no training batch). More module tabs come with those modules.
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, Link } from 'react-router-dom'
-import studentApi, { studentSignedIn, studentSignOut } from '../api/student'
+import studentApi, { studentSignedIn, studentSignOut, setStudentPlace } from '../api/student'
+import StudentProfileCard, { CompletionBar } from '../components/StudentProfileCard'
 import { resizeImage, shrinkScreenshot } from '../utils/image'
 import { CodeView, CodeFilesEditor } from '../components/CodeView'
 import { useOrg } from '../context/OrgContext'
@@ -251,7 +255,7 @@ function Stat({ label, value, sub, tone, bar }) {
 function PhotoCard({ me, onDone }) {
   const input = useRef(null)
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState(null)
-  const photo = me.student.photo
+  const photo = me.person.photo
   async function pick(e) {
     const f = e.target.files?.[0]; e.target.value = ''
     if (!f) return
@@ -272,7 +276,7 @@ function PhotoCard({ me, onDone }) {
   return (
     <Card title="Profile photo" tour="st-photo">
       <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Avatar photo={photo} name={me.student.name} size={96} onClick={() => input.current?.click()} />
+        <Avatar photo={photo} name={me.person.name} size={96} onClick={() => input.current?.click()} />
         <div style={{ flex: 1, minWidth: 200 }}>
           <p style={{ fontSize: 14, margin: '0 0 10px' }}>
             If you make it to a cycle's <b>Top 3</b>, this photo is shown on the public <Link to="/">Hall of Fame</Link>. Use a clear photo of your face.
@@ -289,12 +293,8 @@ function PhotoCard({ me, onDone }) {
   )
 }
 
-function Account({ me, onDone }) {
-  const [gh, setGh] = useState(me.student.github), [cur, setCur] = useState(''), [pw, setPw] = useState(''), [msg, setMsg] = useState(null)
-  async function saveGh() {
-    try { await studentApi.put('/student/github', { github: gh }); setMsg({ ok: true, t: 'GitHub saved.' }); onDone() }
-    catch (e) { setMsg({ ok: false, t: e.response?.data?.message || 'Could not save' }) }
-  }
+function Account({ me }) {
+  const [cur, setCur] = useState(''), [pw, setPw] = useState(''), [msg, setMsg] = useState(null)
   async function savePw() {
     try {
       const { data } = await studentApi.put('/student/password', { current: cur, password: pw })
@@ -306,10 +306,8 @@ function Account({ me, onDone }) {
   return (
     <Card title="Account">
       <div style={{ display: 'grid', gap: 12 }}>
-        <div className="muted" style={{ fontSize: 14 }}>{[me.student.course, me.student.sem, me.student.section, `Roll ${me.student.roll}`].filter(Boolean).join(' · ')}</div>
-        <div className="field" style={{ margin: 0 }}><label>My GitHub profile</label>
-          <div style={{ display: 'flex', gap: 8 }}><input className="ctl" value={gh} onChange={e => setGh(e.target.value)} placeholder="https://github.com/yourname" />
-            <button className="btn btn--secondary btn--sm" style={{ height: 40 }} onClick={saveGh}>Save</button></div></div>
+        <div className="muted" style={{ fontSize: 14 }}>{[me.student?.course, me.student?.sem, me.student?.section, `Roll ${me.person.roll}`].filter(Boolean).join(' · ')}</div>
+        <div className="muted" style={{ fontSize: 13 }}>One sign-in for everything in {me.college?.programName || 'the app'}: your roll number and this password.</div>
         <details><summary style={{ cursor: 'pointer', fontSize: 14 }}>Change password</summary>
           <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
             <input className="ctl" type="password" placeholder="Current password" value={cur} onChange={e => setCur(e.target.value)} />
@@ -390,7 +388,30 @@ function Progress({ me }) {
   )
 }
 
-const TABS = [['today', 'Today'], ['plan', 'Plan'], ['progress', 'Progress'], ['profile', 'Profile']]
+const TRAINING_TABS = [['today', 'Today'], ['plan', 'Plan'], ['progress', 'Progress']]
+
+// "Your profile is 60% complete" on the Today tab, until it is complete. Never blocks anything.
+function ProfileNudge({ c, onOpen }) {
+  return (
+    <section className="sheet" style={{ padding: '14px 16px', borderLeft: '4px solid var(--blue-ink)' }}>
+      <CompletionBar c={c} compact />
+      <button className="btn btn--primary btn--sm" style={{ marginTop: 10 }} onClick={onOpen}>Complete my profile</button>
+    </section>
+  )
+}
+
+// Which batch the training tabs show (only when the student is in more than one)
+function PlaceSwitcher({ me, onPick }) {
+  if (!me.places || me.places.length < 2) return null
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginTop: 10 }}>
+      <span className="muted">Batch</span>
+      <select className="ctl" style={{ maxWidth: 320, height: 34, fontSize: 13 }} value={me.place || ''} onChange={e => onPick(e.target.value)}>
+        {me.places.map(p => <option key={p.studentId} value={p.studentId}>{p.batch}{p.track ? ` · ${p.track}` : ''}{p.current ? '' : ` (${p.semester || 'earlier'})`}</option>)}
+      </select>
+    </label>
+  )
+}
 
 export default function StudentHomePage() {
   const { brand } = useOrg()
@@ -402,17 +423,23 @@ export default function StudentHomePage() {
     catch (e) { setErr(e.response?.data?.message || 'Could not load') }
   }
   useEffect(() => { if (studentSignedIn()) load() }, [])
+  async function pickPlace(id) { setStudentPlace(id); setMe(null); await load() }
   if (!studentSignedIn()) return <Navigate to="/student/login" replace />
   if (err && !me) return <div className="page"><div className="banner banner--error">{err}</div></div>
   if (!me) return <div className="page"><p className="muted">Loading…</p></div>
 
+  // training tabs only for a student in a batch (and a college with training)
+  const training = me.modules?.training !== false && !!me.place && !!me.batch
+  const tabs = [...(training ? TRAINING_TABS : []), ['profile', 'Profile']]
+  const shown = tabs.some(([k]) => k === tab) ? tab : tabs[0][0]
   const classes = (me.cycle?.classes || []).filter(c => !c.holiday)
   const done = classes.filter(c => c.when === 'past').length
   const next = classes.find(c => c.when === 'today') || classes.find(c => c.when === 'upcoming')
-  const latest = [...me.marks].reverse().find(m => m.status === 'evaluated' && m.total != null)
+  const latest = [...(me.marks || [])].reverse().find(m => m.status === 'evaluated' && m.total != null)
   const pd = me.project?.projectDay, toProject = pd ? daysBetween(me.today, pd) : null
-  const todo = (me.pulseToday && !me.pulseToday.mine ? 1 : 0) + me.feedback.filter(f => f.trainers.some(t => !t.done)).length + (me.project?.state === 'open' && !me.project.submission ? 1 : 0)
-  const first = me.student.name.split(' ')[0]
+  const todo = training ? (me.pulseToday && !me.pulseToday.mine ? 1 : 0) + me.feedback.filter(f => f.trainers.some(t => !t.done)).length + (me.project?.state === 'open' && !me.project.submission ? 1 : 0) : 0
+  const first = me.person.name.split(' ')[0]
+  const achievements = me.achievements || []
 
   return (
     <div style={{ background: 'var(--page)', minHeight: '100vh' }}>
@@ -423,23 +450,24 @@ export default function StudentHomePage() {
             <Link to="/" style={{ fontSize: 13 }}>Hall of Fame</Link>
           </div>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-            <Avatar photo={me.student.photo} name={me.student.name} onClick={() => go('profile')} />
+            <Avatar photo={me.person.photo} name={me.person.name} onClick={() => go('profile')} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.2 }}>Hi, {first}</div>
-              <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{me.student.roll} · {me.batch.name}{me.batch.track ? ` · ${me.batch.track}` : ''}</div>
-              {me.achievements.length > 0 && <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {me.achievements.map(a => <span key={a.cycle} className="tag tag--pencil">{MEDAL[a.rank]} Top 3 · Cycle {a.cycle}</span>)}
+              <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{me.person.roll}{training ? ` · ${me.batch.name}${me.batch.track ? ` · ${me.batch.track}` : ''}` : ''}</div>
+              {achievements.length > 0 && <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {achievements.map(a => <span key={a.cycle} className="tag tag--pencil">{MEDAL[a.rank]} Top 3 · Cycle {a.cycle}</span>)}
               </div>}
-              {!me.student.photo && <button type="button" className="btn btn--quiet btn--sm" style={{ padding: 0, marginTop: 4, fontSize: 13 }} onClick={() => go('profile')}>+ Add your photo</button>}
+              {!me.person.photo && <button type="button" className="btn btn--quiet btn--sm" style={{ padding: 0, marginTop: 4, fontSize: 13 }} onClick={() => go('profile')}>+ Add your photo</button>}
             </div>
           </div>
+          <PlaceSwitcher me={me} onPick={pickPlace} />
         </div>
         <nav style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--page)', borderBottom: '1px solid var(--rule)' }}>
           <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 8px', display: 'flex' }} role="tablist">
-            {TABS.map(([k, l]) => (
-              <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)}
-                style={{ flex: 1, background: 'none', border: 'none', padding: '12px 4px 10px', fontSize: 14, fontWeight: tab === k ? 700 : 500, cursor: 'pointer',
-                  color: tab === k ? 'var(--blue-ink)' : 'var(--ink-soft)', borderBottom: `3px solid ${tab === k ? 'var(--blue-ink)' : 'transparent'}`, position: 'relative' }}>
+            {tabs.map(([k, l]) => (
+              <button key={k} role="tab" aria-selected={shown === k} onClick={() => go(k)}
+                style={{ flex: 1, background: 'none', border: 'none', padding: '12px 4px 10px', fontSize: 14, fontWeight: shown === k ? 700 : 500, cursor: 'pointer',
+                  color: shown === k ? 'var(--blue-ink)' : 'var(--ink-soft)', borderBottom: `3px solid ${shown === k ? 'var(--blue-ink)' : 'transparent'}`, position: 'relative' }}>
                 {l}{k === 'today' && todo > 0 && <span style={{ marginLeft: 6, background: 'var(--red-ink)', color: '#fff', borderRadius: 9, fontSize: 11, padding: '1px 6px' }}>{todo}</span>}
               </button>
             ))}
@@ -448,8 +476,10 @@ export default function StudentHomePage() {
       </header>
 
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '16px 16px 60px', display: 'grid', gap: 14 }}>
-        {me.student.demo && <div className="banner banner--pencil" style={{ margin: 0 }}><b>Demo account.</b> Everything works as for a real student, but answers, feedback and submissions are not saved and this account is not in any roster.</div>}
-        {tab === 'today' && <>
+        {me.demo && <div className="banner banner--pencil" style={{ margin: 0 }}><b>Demo account.</b> Everything works as for a real student, but answers, feedback and submissions are not saved and this account is not in any roster.</div>}
+        {!training && shown === 'profile' && <div className="banner" style={{ margin: 0 }}>You are not in a training batch right now. Complete your profile here — your college uses it for training and placement.</div>}
+        {shown === 'today' && <>
+          {me.profile && me.profile.percent < 100 && <ProfileNudge c={me.profile} onOpen={() => go('profile')} />}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
             <Stat label="Attendance" value={me.attendance.pct != null ? `${me.attendance.pct}%` : '—'} sub={`${me.attendance.present} of ${me.attendance.total} classes`}
               tone={me.attendance.pct != null && me.attendance.pct < 75 ? 'var(--red-ink)' : undefined} />
@@ -469,11 +499,12 @@ export default function StudentHomePage() {
             </Card>
           )}
         </>}
-        {tab === 'plan' && (me.cycle ? <PlanList cycle={me.cycle} trainers={me.batch.trainers} /> : <Card><p className="muted" style={{ margin: 0 }}>No cycle planned yet.</p></Card>)}
-        {tab === 'progress' && <Progress me={me} />}
-        {tab === 'profile' && <>
+        {shown === 'plan' && (me.cycle ? <PlanList cycle={me.cycle} trainers={me.batch.trainers} /> : <Card><p className="muted" style={{ margin: 0 }}>No cycle planned yet.</p></Card>)}
+        {shown === 'progress' && <Progress me={me} />}
+        {shown === 'profile' && <>
           <PhotoCard me={me} onDone={load} />
-          <Account me={me} onDone={load} />
+          <StudentProfileCard onSaved={load} />
+          <Account me={me} />
         </>}
       </main>
     </div>

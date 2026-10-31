@@ -23,6 +23,7 @@ export default function StudentLoginPage() {
         ? await studentApi.post('/student/login', { roll, password })
         : await studentApi.post('/student/activate', { roll, code, password })
       localStorage.setItem('sl_student_token', data.token)
+      localStorage.removeItem('sl_student_place')   // a new sign-in starts on their current batch
       navigate('/student')
     } catch (err) { setError(err.response?.data?.message || 'Something went wrong. Try again.') }
     finally { setLoading(false) }
